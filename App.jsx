@@ -267,7 +267,7 @@ export default function App() {
         const base64 = e.target.result.split(",")[1];
         setUploadProgress("Analisi della dieta con Claude...");
         try {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
+          const res = await fetch("/api/claude", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -323,7 +323,7 @@ export default function App() {
     const feedback = feedbackText[sessionKey] || "";
     const exercises = exerciseData;
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -359,7 +359,7 @@ Cosa mi suggerisci per la prossima sessione?`
     if (!pianoComment.trim()) return;
     setPianoUpdateLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -408,7 +408,7 @@ Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente 
     if (!query.trim()) return;
     setFoodLoading(true); setFoodResults([]);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
