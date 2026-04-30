@@ -267,7 +267,7 @@ export default function App() {
         const base64 = e.target.result.split(",")[1];
         setUploadProgress("Analisi della dieta con Claude...");
         try {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
+          const res = await fetch("/api/claude", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
