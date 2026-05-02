@@ -120,7 +120,7 @@ export default function App() {
   const f = { fontFamily: "Georgia, serif" };
   const [activeTab, setActiveTab] = useState("profilo");
   const [piano, setPiano] = useState(PIANO_DEFAULT.piano);
-  const [schedaAllenamento] = useState(PIANO_DEFAULT.scheda_allenamento);
+  const [schedaAllenamento, setSchedaAllenamento] = useState(PIANO_DEFAULT.scheda_allenamento);
   const [dieta, setDieta] = useState(DIETA_BISICCHIA);
   const [dietaCaricata, setDietaCaricata] = useState(true);
   const [uploadingDieta, setUploadingDieta] = useState(false);
@@ -272,7 +272,7 @@ export default function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
-              max_tokens: 1000,
+              max_tokens: 4000,
               messages: [{
                 role: "user",
                 content: [
@@ -328,7 +328,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1000,
+          max_tokens: 4000,
           system: `Sei un personal trainer con metodologia Project Invictus.
 La dieta è gestita esternamente — NON menzionarla.
 Analizza il feedback della sessione e rispondi con suggerimenti adattativi concreti per la prossima sessione.
@@ -364,7 +364,7 @@ Cosa mi suggerisci per la prossima sessione?`
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1000,
+          max_tokens: 4000,
           system: `${SYSTEM_PROMPT_PT}
 
 Quando aggiorni il piano restituisci SOLO questo JSON senza nulla prima o dopo:
@@ -397,6 +397,7 @@ Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente 
       const text = result.content?.map(c => c.text || "").join("") || "";
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       if (parsed.piano) setPiano(parsed.piano);
+      if (parsed.scheda_allenamento) setSchedaAllenamento(parsed.scheda_allenamento);
       setPianoComment("");
     } catch(e) {
       console.error(e);
@@ -413,7 +414,7 @@ Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1000,
+          max_tokens: 4000,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}". Rispondi SOLO con JSON array senza nulla prima o dopo:
 [{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
 Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
