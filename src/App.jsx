@@ -1,5 +1,18 @@
 import { useState, useRef } from "react";
 
+// Inject global mobile-first styles
+const MOBILE_STYLE = `
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  input, textarea, select { font-size: 16px !important; }
+  button { min-height: 44px; cursor: pointer; }
+`;
+if (typeof document !== 'undefined' && !document.getElementById('mobile-style')) {
+  const s = document.createElement('style');
+  s.id = 'mobile-style';
+  s.textContent = MOBILE_STYLE;
+  document.head?.appendChild(s);
+}
+
 // ─── SYSTEM PROMPT ALLENAMENTO (no dieta) ───────────────────────────────────
 const SYSTEM_PROMPT_PT = `Sei un personal trainer con 30 anni di esperienza sul campo.
 Il tuo approccio è quello del collettivo Project Invictus: evidence-based, scientifico, pragmatico, senza broscience.
@@ -479,7 +492,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
               ].map(m => (
                 <div key={m.label} title={m.tooltip || ""} style={{ background: "white", borderRadius: 8, padding: "8px 6px", border: "0.5px solid #e0e0d8" }}>
                   <div style={{ fontSize: 9, color: "#999" }}>{m.label}{m.tooltip ? " ℹ" : ""}</div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{m.value}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>{m.value}</div>
                 </div>
               ))}
             </div>
@@ -549,7 +562,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
                 </div>
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: block.color, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{block.title}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>{block.title}</div>
                   <div style={{ fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getBlockValue(block.id)}</div>
                 </div>
                 {block.id === "piano" && <span style={{ fontSize: 11, color: "#1D9E75", flexShrink: 0 }}>{pianoOpen ? "Chiudi" : "Apri →"}</span>}
@@ -569,7 +582,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
                 {piano?.fasi?.map((fase, fi) => (
                   <div key={fi} style={{ background: fi === 0 ? "#f0faf5" : "#f9f9f6", borderRadius: 10, border: `0.5px solid ${fi === 0 ? "#b8e8d0" : "#e8e8e0"}`, padding: 12, marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Fase {fase.numero} — {fase.nome}</span>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>Fase {fase.numero} — {fase.nome}</span>
                       {fi === 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, background: "#E1F5EE", color: "#0F6E56" }}>In corso</span>}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 }}>
@@ -650,7 +663,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
                 </div>
                 <div>
                   <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => handleDietaUpload(e.target.files[0])} />
-                  <button onClick={() => fileInputRef.current?.click()} style={{ fontSize: 12, color: "#1D9E75", border: "0.5px solid #1D9E75", borderRadius: 8, padding: "6px 14px", background: "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent", ...f }}>
+                  <button onClick={() => fileInputRef.current?.click()} style={{ fontSize: 14, color: "#1D9E75", border: "1px solid #1D9E75", borderRadius: 10, padding: "10px 20px", background: "transparent", cursor: "pointer", minHeight: 44, ...f }}>
                     {dietaCaricata ? "Aggiorna PDF" : "Carica PDF"}
                   </button>
                 </div>
