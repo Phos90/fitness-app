@@ -134,7 +134,10 @@ export default function App() {
   const [editorPiano, setEditorPiano] = useState(null); // working copy in editor
   const [editorScheda, setEditorScheda] = useState(null); // working copy scheda
   const [editorSaved, setEditorSaved] = useState(false);
-  const [weightHistory, setWeightHistory] = useState([{ date: "14/04/2026", value: 75 }]);
+  const [weightHistory, setWeightHistoryRaw] = useState(() => {
+    try { const s = localStorage.getItem('weightHistory'); return s ? JSON.parse(s) : [{ date: "14/04/2026", value: 75 }]; } catch { return [{ date: "14/04/2026", value: 75 }]; }
+  });
+  const setWeightHistory = (v) => { const next = typeof v === 'function' ? v(weightHistory) : v; setWeightHistoryRaw(next); try { localStorage.setItem('weightHistory', JSON.stringify(next)); } catch {} };
   const [newWeight, setNewWeight] = useState("");
   const [editingBody, setEditingBody] = useState(false);
   const [bodyData, setBodyData] = useState({ fat: "", lean: "", water: "" });
@@ -146,7 +149,11 @@ export default function App() {
     { id: "health", title: "Salute", color: "#FAECE7" },
   ]);
   const [dragIdx, setDragIdx] = useState(null);
-  const [meals, setMeals] = useState({ Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
+  const todayKey = new Date().toISOString().split('T')[0];
+  const [meals, setMealsRaw] = useState(() => {
+    try { const s = localStorage.getItem('meals_' + new Date().toISOString().split('T')[0]); return s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; } catch { return { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; }
+  });
+  const setMeals = (v) => { const next = typeof v === 'function' ? v(meals) : v; setMealsRaw(next); try { localStorage.setItem('meals_' + new Date().toISOString().split('T')[0], JSON.stringify(next)); } catch {} };
   const [addingMeal, setAddingMeal] = useState(null);
   const [foodSearch, setFoodSearch] = useState("");
   const [foodResults, setFoodResults] = useState([]);
@@ -157,7 +164,10 @@ export default function App() {
   const [workoutNotes, setWorkoutNotes] = useState({});
   const [workoutMood, setWorkoutMood] = useState({});
   const [exerciseData, setExerciseData] = useState({});
-  const [savedSessions, setSavedSessions] = useState({});
+  const [savedSessions, setSavedSessionsRaw] = useState(() => {
+    try { const s = localStorage.getItem('savedSessions'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  const setSavedSessions = (v) => { const next = typeof v === 'function' ? v(savedSessions) : v; setSavedSessionsRaw(next); try { localStorage.setItem('savedSessions', JSON.stringify(next)); } catch {} };
   const [feedbackText, setFeedbackText] = useState({});
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [adaptiveResponse, setAdaptiveResponse] = useState({});
@@ -168,7 +178,10 @@ export default function App() {
   const [extraSaved, setExtraSaved] = useState({});
   const [extraExpanded, setExtraExpanded] = useState({});
   const [extraEditing, setExtraEditing] = useState({});
-  const [workoutAssignments, setWorkoutAssignments] = useState({});
+  const [workoutAssignments, setWorkoutAssignmentsRaw] = useState(() => {
+    try { const s = localStorage.getItem('workoutAssignments'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  const setWorkoutAssignments = (v) => { const next = typeof v === 'function' ? v(workoutAssignments) : v; setWorkoutAssignmentsRaw(next); try { localStorage.setItem('workoutAssignments', JSON.stringify(next)); } catch {} };
   const [selectedWorkoutToken, setSelectedWorkoutToken] = useState(null);
   const [dayMenu, setDayMenu] = useState(null); // { dk, wInfo } — context menu for assigned day
   const PROGRAM_START = new Date("2026-04-21"); // inizio percorso
@@ -272,7 +285,7 @@ export default function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
-              max_tokens: 4000,
+              max_tokens: 1000,
               messages: [{
                 role: "user",
                 content: [
@@ -328,7 +341,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 4000,
+          max_tokens: 1000,
           system: `Sei un personal trainer con metodologia Project Invictus.
 La dieta è gestita esternamente — NON menzionarla.
 Analizza il feedback della sessione e rispondi con suggerimenti adattativi concreti per la prossima sessione.
@@ -364,43 +377,27 @@ Cosa mi suggerisci per la prossima sessione?`
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 4000,
-          system: `${SYSTEM_PROMPT_PT}
-
-Quando aggiorni il piano restituisci SOLO questo JSON senza nulla prima o dopo:
-{
-  "piano": {
-    "obiettivo": "string",
-    "durata_settimane": number,
-    "note_generali": "string",
-    "fasi": [{"numero":1,"nome":"string","settimane":"string","allenamenti_settimana":number,"note":"string"}]
-  },
-  "scheda_allenamento": {
-    "giorni_settimana": [
-      {"tipo":"corsa|palestra","titolo":"string","descrizione":"string","esercizi":[{"nome":"string","serie":number,"ripetizioni":"string","recupero_secondi":number,"note_tecniche":"string"}]}
-    ]
-  }
-}`,
+          max_tokens: 8000,
+          system: `Sei un personal trainer esperto. Aggiorna il piano di allenamento secondo i commenti dell'utente.
+Dati utente fissi: Flavio, 35 anni, 75kg, 178cm, epitrocleite gomito destro (trattata), sala pesi + corsa Villa Pamphili.
+ISTRUZIONE CRITICA: Rispondi SOLO con JSON puro valido. Zero testo prima o dopo. Zero backtick. Zero markdown.
+Formato esatto richiesto:
+{"piano":{"obiettivo":"string","durata_settimane":16,"note_generali":"string","fasi":[{"numero":1,"nome":"string","settimane":"1-4","allenamenti_settimana":3,"note":"string"},{"numero":2,"nome":"string","settimane":"5-10","allenamenti_settimana":3,"note":"string"},{"numero":3,"nome":"string","settimane":"11-16","allenamenti_settimana":3,"note":"string"}]},"scheda_allenamento":{"giorni_settimana":[{"tipo":"palestra","titolo":"string","descrizione":"string","esercizi":[{"nome":"string","serie":3,"ripetizioni":"10-12","recupero_secondi":90,"note_tecniche":"string"}]},{"tipo":"corsa","titolo":"string","descrizione":"string","esercizi":[{"nome":"string","serie":1,"ripetizioni":"30 minuti","recupero_secondi":0,"note_tecniche":"string"}]}]}}`,
           messages: [{
             role: "user",
-            content: `Piano attuale:
-${JSON.stringify(piano, null, 2)}
-
-Commenti e modifiche richieste:
-${pianoComment}
-
-Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente un numero di sessioni o qualsiasi altro parametro specifico, RISPETTA quella richiesta — non applicare valori di default che contraddicono quanto richiesto. Mantieni tutto quello che non viene esplicitamente cambiato.`
+            content: `Piano attuale:\n${JSON.stringify(piano, null, 2)}\n\nCommenti e modifiche richieste:\n${pianoComment}\n\nAggiorna il piano rispettando esattamente i commenti. Rispondi SOLO con JSON puro.`
           }]
         })
       });
       const result = await res.json();
       const text = result.content?.map(c => c.text || "").join("") || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
       if (parsed.piano) setPiano(parsed.piano);
       if (parsed.scheda_allenamento) setSchedaAllenamento(parsed.scheda_allenamento);
       setPianoComment("");
     } catch(e) {
-      console.error(e);
+      console.error("updatePiano error:", e);
     }
     setPianoUpdateLoading(false);
   }
@@ -414,7 +411,7 @@ Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 4000,
+          max_tokens: 1000,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}". Rispondi SOLO con JSON array senza nulla prima o dopo:
 [{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
 Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
