@@ -1,22 +1,22 @@
 import { useState, useRef } from "react";
 
-// âââ SYSTEM PROMPT ALLENAMENTO (no dieta) âââââââââââââââââââââââââââââââââââ
+// ─── SYSTEM PROMPT ALLENAMENTO (no dieta) ───────────────────────────────────
 const SYSTEM_PROMPT_PT = `Sei un personal trainer con 30 anni di esperienza sul campo.
-Il tuo approccio Ã¨ quello del collettivo Project Invictus: evidence-based, scientifico, pragmatico, senza broscience.
+Il tuo approccio è quello del collettivo Project Invictus: evidence-based, scientifico, pragmatico, senza broscience.
 
-La dieta Ã¨ gestita da un nutrizionista esterno â NON generare MAI piani alimentari, calorie o macro. Questo non Ã¨ il tuo compito.
-Il tuo compito Ã¨ esclusivamente il piano di allenamento personalizzato.
+La dieta è gestita da un nutrizionista esterno — NON generare MAI piani alimentari, calorie o macro. Questo non è il tuo compito.
+Il tuo compito è esclusivamente il piano di allenamento personalizzato.
 
 BASE DI CONOSCENZA
 I tuoi piani di allenamento partono dalla conoscenza metodologica dei testi di Project Invictus.
-Usali come punto di partenza non esaustivo â non come regole fisse da copiare.
+Usali come punto di partenza non esaustivo — non come regole fisse da copiare.
 Questo significa che conosci e applichi dove pertinente:
 - Periodizzazione a blocchi (mesocicli, deload, overreaching controllato)
-- Metodologie di volume/intensitÃ : multifrequenza, full body, push/pull, upper/lower, PHAT, metodo Hatfield
-- Progressione dei parametri allenanti: volume, intensitÃ , densitÃ , frequenza, TUT
+- Metodologie di volume/intensità: multifrequenza, full body, push/pull, upper/lower, PHAT, metodo Hatfield
+- Progressione dei parametri allenanti: volume, intensità, densità, frequenza, TUT
 - Scelta degli esercizi: fondamentali multiarticolari come base, complementari e isolamento come supporto
-- Adattamento continuo alla specificitÃ  dell'atleta in base ai feedback reali
-Non copii le schede dai libri â le usi come ispirazione metodologica per costruire qualcosa
+- Adattamento continuo alla specificità dell'atleta in base ai feedback reali
+Non copii le schede dai libri — le usi come ispirazione metodologica per costruire qualcosa
 di specifico per questa persona, che evolve nel tempo in base ai progressi reali.
 
 DATI UTENTE FISSI:
@@ -24,14 +24,14 @@ DATI UTENTE FISSI:
 - Sedentario da 2 anni (stop completo)
 - Epitrocleite gomito destro (trattata con infiltrazione, al momento asintomatica)
 - Vuole: sala pesi + corsa a Villa Pamphili
-- DisponibilitÃ : 3 giorni a settimana
+- Disponibilità: 3 giorni a settimana
 - Palestra: zona Colli Portuensi Roma
 
 PRINCIPI INVARIABILI:
-- Infortuni = vincoli assoluti, sempre adattare gli esercizi â mai ignorarli
+- Infortuni = vincoli assoluti, sempre adattare gli esercizi — mai ignorarli
 - Chi riprende dopo 2+ anni: suggerisci partenza conservativa come default, ma se l'utente indica esplicitamente un numero di sessioni diverso, rispetta sempre la sua scelta e costruisci il piano di conseguenza
 - Rispetta il tipo di allenamento preferito dall'atleta
-- La costanza batte l'intensitÃ 
+- La costanza batte l'intensità
 - Manubri preferiti al bilanciere per il gomito; usa straps dove necessario
 
 Quando generi la scheda restituisci SOLO questo JSON senza nulla prima o dopo:
@@ -56,64 +56,64 @@ Quando generi la scheda restituisci SOLO questo JSON senza nulla prima o dopo:
   }
 }`;
 
-// âââ PIANO ALLENAMENTO PRE-CARICATO âââââââââââââââââââââââââââââââââââââââââ
+// ─── PIANO ALLENAMENTO PRE-CARICATO ─────────────────────────────────────────
 const PIANO_DEFAULT = {
   piano: {
-    obiettivo: "Ricomposizione corporea â recupero massa muscolare e perdita grasso viscerale dopo 2 anni di stop",
+    obiettivo: "Ricomposizione corporea — recupero massa muscolare e perdita grasso viscerale dopo 2 anni di stop",
     durata_settimane: 16,
     note_generali: "Partenza conservativa con 2 sessioni/settimana per riattivare tendini e articolazioni. Progressione a 3 sessioni dalla settimana 5. Epitrocleite gestita con adattamenti specifici per ogni esercizio.",
     fasi: [
-      { numero: 1, nome: "Riattivazione", settimane: "1-4", allenamenti_settimana: 2, note: "2 sessioni invece di 3 â i tendini si adattano piÃ¹ lentamente dei muscoli. Dopo 2 anni di stop, partire a 3 sessioni Ã¨ il modo piÃ¹ sicuro per riacutizzare l'epitrocleite." },
-      { numero: 2, nome: "Costruzione", settimane: "5-10", allenamenti_settimana: 3, note: "Aggiunta terza sessione dopo riattivazione tendinea. Proteine e calorie della dieta rimangono invariate â la nutrizionista aggiornerÃ  la dieta quando necessario." },
-      { numero: 3, nome: "Ottimizzazione", settimane: "11-16", allenamenti_settimana: 3, note: "IntensitÃ  crescente. Comunicare alla nutrizionista l'aumento del volume per eventuale aggiustamento calorico." },
+      { numero: 1, nome: "Riattivazione", settimane: "1-4", allenamenti_settimana: 2, note: "2 sessioni invece di 3 — i tendini si adattano più lentamente dei muscoli. Dopo 2 anni di stop, partire a 3 sessioni è il modo più sicuro per riacutizzare l'epitrocleite." },
+      { numero: 2, nome: "Costruzione", settimane: "5-10", allenamenti_settimana: 3, note: "Aggiunta terza sessione dopo riattivazione tendinea. Proteine e calorie della dieta rimangono invariate — la nutrizionista aggiornerà la dieta quando necessario." },
+      { numero: 3, nome: "Ottimizzazione", settimane: "11-16", allenamenti_settimana: 3, note: "Intensità crescente. Comunicare alla nutrizionista l'aumento del volume per eventuale aggiustamento calorico." },
     ]
   },
   scheda_allenamento: {
     giorni_settimana: [
-      { tipo: "palestra", titolo: "Total Body A", descrizione: "Fase 1 â Riattivazione neuromuscolare. Carichi al 60-65% del massimale. Tecnica prima del peso.", esercizi: [
-        { nome: "Riscaldamento â cyclette o camminata veloce", serie: 1, ripetizioni: "10 minuti", recupero_secondi: 0, note_tecniche: "FC 100-110 bpm. Mai saltare dopo 2 anni di stop." },
+      { tipo: "palestra", titolo: "Total Body A", descrizione: "Fase 1 — Riattivazione neuromuscolare. Carichi al 60-65% del massimale. Tecnica prima del peso.", esercizi: [
+        { nome: "Riscaldamento — cyclette o camminata veloce", serie: 1, ripetizioni: "10 minuti", recupero_secondi: 0, note_tecniche: "FC 100-110 bpm. Mai saltare dopo 2 anni di stop." },
         { nome: "Goblet squat con manubrio", serie: 3, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "Manubrio al petto, presa simmetrica. Non forzare la flessione del gomito destro. Cosce parallele al suolo." },
-        { nome: "Panca piana con manubri", serie: 4, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "OBBLIGATORIO manubri (no bilanciere) â riducono lo stress sul gomito destro. Presa neutra o prona." },
+        { nome: "Panca piana con manubri", serie: 4, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "OBBLIGATORIO manubri (no bilanciere) — riducono lo stress sul gomito destro. Presa neutra o prona." },
         { nome: "Lat machine presa larga", serie: 3, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "Usa straps se la presa affatica il gomito destro. Non stringere eccessivamente con la mano destra." },
-        { nome: "Romanian deadlift con manubri", serie: 3, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "Manubri ai lati, schiena dritta, cerniera all'anca. Usa straps se il gomito dÃ  fastidio." },
-        { nome: "Plank frontale su avambracci", serie: 3, ripetizioni: "20-30 secondi", recupero_secondi: 60, note_tecniche: "Appoggio sugli avambracci â zero stress sul gomito. Corpo rigido." },
-        { nome: "Defaticamento â stretching", serie: 1, ripetizioni: "10 minuti", recupero_secondi: 0, note_tecniche: "Focus su quadricipiti, femorali, petto, schiena." },
+        { nome: "Romanian deadlift con manubri", serie: 3, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "Manubri ai lati, schiena dritta, cerniera all'anca. Usa straps se il gomito dà fastidio." },
+        { nome: "Plank frontale su avambracci", serie: 3, ripetizioni: "20-30 secondi", recupero_secondi: 60, note_tecniche: "Appoggio sugli avambracci — zero stress sul gomito. Corpo rigido." },
+        { nome: "Defaticamento — stretching", serie: 1, ripetizioni: "10 minuti", recupero_secondi: 0, note_tecniche: "Focus su quadricipiti, femorali, petto, schiena." },
       ]},
-      { tipo: "corsa", titolo: "Corsa a Villa Pamphili", descrizione: "Fase 1 â Interval walking/running. No corsa continua.", esercizi: [
-        { nome: "Riscaldamento â camminata normale", serie: 1, ripetizioni: "5 minuti", recupero_secondi: 0, note_tecniche: "Sempre camminata a freddo. Non partire di corsa." },
+      { tipo: "corsa", titolo: "Corsa a Villa Pamphili", descrizione: "Fase 1 — Interval walking/running. No corsa continua.", esercizi: [
+        { nome: "Riscaldamento — camminata normale", serie: 1, ripetizioni: "5 minuti", recupero_secondi: 0, note_tecniche: "Sempre camminata a freddo. Non partire di corsa." },
         { nome: "Interval: 1 min corsa leggera + 2 min camminata veloce", serie: 6, ripetizioni: "18 minuti totali", recupero_secondi: 0, note_tecniche: "Sett 1-2: quasi trottare. Sett 3-4: aumenta leggermente. FC max 140-150 bpm." },
-        { nome: "Defaticamento â camminata lenta", serie: 1, ripetizioni: "5 minuti", recupero_secondi: 0, note_tecniche: "Non fermarti bruscamente." },
+        { nome: "Defaticamento — camminata lenta", serie: 1, ripetizioni: "5 minuti", recupero_secondi: 0, note_tecniche: "Non fermarti bruscamente." },
       ]},
     ]
   }
 };
 
-// âââ DIETA BISICCHIA PRE-CALCOLATA âââââââââââââââââââââââââââââââââââââââââââ
+// ─── DIETA BISICCHIA PRE-CALCOLATA ───────────────────────────────────────────
 const DIETA_BISICCHIA = {
-  fonte: "Dott.ssa Elisa Bisicchia â Biologa Nutrizionista",
+  fonte: "Dott.ssa Elisa Bisicchia — Biologa Nutrizionista",
   data_caricamento: "14/04/2026",
   pdf_url: "https://drive.google.com/file/d/1FDHpb3R5ArwLxrPBEImPkniSNNZjYGAm/view?usp=share_link",
   media_settimanale: { kcal: 1499, proteine_g: 89, carboidrati_g: 183, grassi_g: 45 },
   note: "Dieta ipocalorica con deficit ~500 kcal. Struttura a liste intercambiabili. Olio EVO 25g/die.",
   giorni: [
-    { giorno: "LunedÃ¬", kcal: 1701, p: 122, c: 163, g: 60 },
-    { giorno: "MartedÃ¬", kcal: 1454, p: 81, c: 203, g: 34 },
-    { giorno: "MercoledÃ¬", kcal: 1412, p: 81, c: 177, g: 41 },
-    { giorno: "GiovedÃ¬", kcal: 1508, p: 89, c: 175, g: 49 },
-    { giorno: "VenerdÃ¬", kcal: 1544, p: 56, c: 207, g: 54 },
+    { giorno: "Lunedì", kcal: 1701, p: 122, c: 163, g: 60 },
+    { giorno: "Martedì", kcal: 1454, p: 81, c: 203, g: 34 },
+    { giorno: "Mercoledì", kcal: 1412, p: 81, c: 177, g: 41 },
+    { giorno: "Giovedì", kcal: 1508, p: 89, c: 175, g: 49 },
+    { giorno: "Venerdì", kcal: 1544, p: 56, c: 207, g: 54 },
     { giorno: "Sabato", kcal: 1488, p: 111, c: 175, g: 37 },
     { giorno: "Domenica", kcal: 1389, p: 84, c: 177, g: 38 },
   ]
 };
 
 const MOTIVATIONAL_QUOTES = [
-  { text: "Il corpo ottiene ciÃ² che la mente crede.", author: "Napoleon Hill" },
-  { text: "Non contare i giorni. Fai sÃ¬ che i giorni contino.", author: "Muhammad Ali" },
-  { text: "La disciplina Ã¨ il ponte tra obiettivi e risultati.", author: "Jim Rohn" },
-  { text: "Ogni allenamento Ã¨ un deposito nel conto della tua salute.", author: "Anonimo" },
+  { text: "Il corpo ottiene ciò che la mente crede.", author: "Napoleon Hill" },
+  { text: "Non contare i giorni. Fai sì che i giorni contino.", author: "Muhammad Ali" },
+  { text: "La disciplina è il ponte tra obiettivi e risultati.", author: "Jim Rohn" },
+  { text: "Ogni allenamento è un deposito nel conto della tua salute.", author: "Anonimo" },
   { text: "Non fermarti quando sei stanco. Fermati quando hai finito.", author: "Anonimo" },
-  { text: "Il successo non Ã¨ definitivo, il fallimento non Ã¨ fatale.", author: "Winston Churchill" },
-  { text: "La forza non viene dal corpo. Viene dalla volontÃ .", author: "Gandhi" },
+  { text: "Il successo non è definitivo, il fallimento non è fatale.", author: "Winston Churchill" },
+  { text: "La forza non viene dal corpo. Viene dalla volontà.", author: "Gandhi" },
 ];
 
 export default function App() {
@@ -134,8 +134,7 @@ export default function App() {
   const [editorPiano, setEditorPiano] = useState(null); // working copy in editor
   const [editorScheda, setEditorScheda] = useState(null); // working copy scheda
   const [editorSaved, setEditorSaved] = useState(false);
-  const [weightHistory, setWeightHistoryRaw] = useState(() => { try { const s = localStorage.getItem('weightHistory'); return s ? JSON.parse(s) : [{ date: "14/04/2026", value: 75 }]; } catch { return [{ date: "14/04/2026", value: 75 }]; } });
-  const setWeightHistory = (v) => { const next = typeof v === 'function' ? v(weightHistory) : v; setWeightHistoryRaw(next); try { localStorage.setItem('weightHistory', JSON.stringify(next)); } catch {} };
+  const [weightHistory, setWeightHistory] = useState([{ date: "14/04/2026", value: 75 }]);
   const [newWeight, setNewWeight] = useState("");
   const [editingBody, setEditingBody] = useState(false);
   const [bodyData, setBodyData] = useState({ fat: "", lean: "", water: "" });
@@ -147,8 +146,7 @@ export default function App() {
     { id: "health", title: "Salute", color: "#FAECE7" },
   ]);
   const [dragIdx, setDragIdx] = useState(null);
-  const [meals, setMealsRaw] = useState(() => { try { const s = localStorage.getItem('meals_' + new Date().toISOString().split('T')[0]); return s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; } catch { return { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; } });
-  const setMeals = (v) => { const next = typeof v === 'function' ? v(meals) : v; setMealsRaw(next); try { localStorage.setItem('meals_' + new Date().toISOString().split('T')[0], JSON.stringify(next)); } catch {} };
+  const [meals, setMeals] = useState({ Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
   const [addingMeal, setAddingMeal] = useState(null);
   const [foodSearch, setFoodSearch] = useState("");
   const [foodResults, setFoodResults] = useState([]);
@@ -159,8 +157,7 @@ export default function App() {
   const [workoutNotes, setWorkoutNotes] = useState({});
   const [workoutMood, setWorkoutMood] = useState({});
   const [exerciseData, setExerciseData] = useState({});
-  const [savedSessions, setSavedSessionsRaw] = useState(() => { try { const s = localStorage.getItem('savedSessions'); return s ? JSON.parse(s) : {}; } catch { return {}; } });
-  const setSavedSessions = (v) => { const next = typeof v === 'function' ? v(savedSessions) : v; setSavedSessionsRaw(next); try { localStorage.setItem('savedSessions', JSON.stringify(next)); } catch {} };
+  const [savedSessions, setSavedSessions] = useState({});
   const [feedbackText, setFeedbackText] = useState({});
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [adaptiveResponse, setAdaptiveResponse] = useState({});
@@ -171,10 +168,9 @@ export default function App() {
   const [extraSaved, setExtraSaved] = useState({});
   const [extraExpanded, setExtraExpanded] = useState({});
   const [extraEditing, setExtraEditing] = useState({});
-  const [workoutAssignments, setWorkoutAssignmentsRaw] = useState(() => { try { const s = localStorage.getItem('workoutAssignments'); return s ? JSON.parse(s) : {}; } catch { return {}; } });
-  const setWorkoutAssignments = (v) => { const next = typeof v === 'function' ? v(workoutAssignments) : v; setWorkoutAssignmentsRaw(next); try { localStorage.setItem('workoutAssignments', JSON.stringify(next)); } catch {} };
+  const [workoutAssignments, setWorkoutAssignments] = useState({});
   const [selectedWorkoutToken, setSelectedWorkoutToken] = useState(null);
-  const [dayMenu, setDayMenu] = useState(null); // { dk, wInfo } â context menu for assigned day
+  const [dayMenu, setDayMenu] = useState(null); // { dk, wInfo } — context menu for assigned day
   const PROGRAM_START = new Date("2026-04-21"); // inizio percorso
   const [streak] = useState(0);
   const [diaryText, setDiaryText] = useState("");
@@ -209,13 +205,13 @@ export default function App() {
     if (!phase) return [];
     const n = phase.allenamenti_settimana || 2;
     if (n <= 2) return [
-      { id: "palestra", label: "Palestra", color: "#1D9E75", emoji: "ð" },
-      { id: "corsa", label: "Corsa", color: "#378ADD", emoji: "ð" },
+      { id: "palestra", label: "Palestra", color: "#1D9E75", emoji: "🏋" },
+      { id: "corsa", label: "Corsa", color: "#378ADD", emoji: "🏃" },
     ];
     return [
-      { id: "push", label: "Push", color: "#1D9E75", emoji: "ð" },
-      { id: "corsa", label: "Corsa", color: "#378ADD", emoji: "ð" },
-      { id: "pull", label: "Pull+Gambe", color: "#854F0B", emoji: "ðª" },
+      { id: "push", label: "Push", color: "#1D9E75", emoji: "🏋" },
+      { id: "corsa", label: "Corsa", color: "#378ADD", emoji: "🏃" },
+      { id: "pull", label: "Pull+Gambe", color: "#854F0B", emoji: "💪" },
     ];
   }
 
@@ -234,12 +230,12 @@ export default function App() {
 
   function getBlockValue(id) {
     switch (id) {
-      case "physical": return "Uomo Â· 35 anni Â· 178 cm";
+      case "physical": return "Uomo · 35 anni · 178 cm";
       case "goal": return "Ricomposizione corporea";
-      case "piano": return `${piano.fasi?.length} fasi Â· ${piano.durata_settimane} sett.`;
-      case "dieta_block": return dietaCaricata ? `${dieta.fonte?.split("â")[0].trim()} Â· ${dieta.media_settimanale?.kcal} kcal/die` : "Nessuna dieta caricata";
+      case "piano": return `${piano.fasi?.length} fasi · ${piano.durata_settimane} sett.`;
+      case "dieta_block": return dietaCaricata ? `${dieta.fonte?.split("—")[0].trim()} · ${dieta.media_settimanale?.kcal} kcal/die` : "Nessuna dieta caricata";
       case "health": return "Epitrocleite gomito destro (trattata)";
-      default: return "â";
+      default: return "—";
     }
   }
 
@@ -289,11 +285,11 @@ export default function App() {
   "media_settimanale": {"kcal": numero, "proteine_g": numero, "carboidrati_g": numero, "grassi_g": numero},
   "note": "breve descrizione del tipo di dieta",
   "giorni": [
-    {"giorno": "LunedÃ¬", "kcal": numero, "p": numero, "c": numero, "g": numero},
-    {"giorno": "MartedÃ¬", "kcal": numero, "p": numero, "c": numero, "g": numero},
-    {"giorno": "MercoledÃ¬", "kcal": numero, "p": numero, "c": numero, "g": numero},
-    {"giorno": "GiovedÃ¬", "kcal": numero, "p": numero, "c": numero, "g": numero},
-    {"giorno": "VenerdÃ¬", "kcal": numero, "p": numero, "c": numero, "g": numero},
+    {"giorno": "Lunedì", "kcal": numero, "p": numero, "c": numero, "g": numero},
+    {"giorno": "Martedì", "kcal": numero, "p": numero, "c": numero, "g": numero},
+    {"giorno": "Mercoledì", "kcal": numero, "p": numero, "c": numero, "g": numero},
+    {"giorno": "Giovedì", "kcal": numero, "p": numero, "c": numero, "g": numero},
+    {"giorno": "Venerdì", "kcal": numero, "p": numero, "c": numero, "g": numero},
     {"giorno": "Sabato", "kcal": numero, "p": numero, "c": numero, "g": numero},
     {"giorno": "Domenica", "kcal": numero, "p": numero, "c": numero, "g": numero}
   ]
@@ -307,7 +303,7 @@ export default function App() {
           const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
           setDieta(parsed);
           setDietaCaricata(true);
-          setUploadProgress("â Dieta caricata! Ora incolla il link al PDF Google Drive.");
+          setUploadProgress("✓ Dieta caricata! Ora incolla il link al PDF Google Drive.");
           setEditingPdfUrl(true);
         } catch (e) {
           setUploadProgress("Errore nell'analisi. Riprova.");
@@ -334,9 +330,9 @@ export default function App() {
           model: "claude-sonnet-4-6",
           max_tokens: 4000,
           system: `Sei un personal trainer con metodologia Project Invictus.
-La dieta Ã¨ gestita esternamente â NON menzionarla.
+La dieta è gestita esternamente — NON menzionarla.
 Analizza il feedback della sessione e rispondi con suggerimenti adattativi concreti per la prossima sessione.
-Principi invariabili: infortuni = vincoli assoluti, progressione graduale, costanza prima dell'intensitÃ .
+Principi invariabili: infortuni = vincoli assoluti, progressione graduale, costanza prima dell'intensità.
 Dati atleta: Flavio, 35 anni, 75kg, epitrocleite gomito destro (trattata). Fase 1 Riattivazione.
 Rispondi in italiano, max 150 parole, diretto e pratico. Struttura: 1) Valutazione 2) Cosa cambia 3) Obiettivo prossima sessione.`,
           messages: [{
@@ -393,7 +389,7 @@ ${JSON.stringify(piano, null, 2)}
 Commenti e modifiche richieste:
 ${pianoComment}
 
-Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente un numero di sessioni o qualsiasi altro parametro specifico, RISPETTA quella richiesta â non applicare valori di default che contraddicono quanto richiesto. Mantieni tutto quello che non viene esplicitamente cambiato.`
+Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente un numero di sessioni o qualsiasi altro parametro specifico, RISPETTA quella richiesta — non applicare valori di default che contraddicono quanto richiesto. Mantieni tutto quello che non viene esplicitamente cambiato.`
           }]
         })
       });
@@ -420,8 +416,8 @@ Aggiorna il piano tenendo conto dei commenti. Se l'utente chiede esplicitamente 
           model: "claude-sonnet-4-6",
           max_tokens: 4000,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}". Rispondi SOLO con JSON array senza nulla prima o dopo:
-[{"nome":"nome con quantitÃ ","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
-Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
+[{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
+Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
         })
       });
       const result = await res.json();
@@ -456,7 +452,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
     <div style={{ minHeight: "100vh", background: "#f5f5f0", ...f }}>
       <div style={{ maxWidth: 420, margin: "0 auto", paddingBottom: 80 }}>
 
-        {/* ââââââââââââââââââ PROFILO ââââââââââââââââââ */}
+        {/* ══════════════════ PROFILO ══════════════════ */}
         {activeTab === "profilo" && (
           <div style={{ padding: "24px 16px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -466,13 +462,13 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
               {[
-                { label: "EtÃ ", value: "35 anni" },
+                { label: "Età", value: "35 anni" },
                 { label: "Peso", value: weightHistory[weightHistory.length-1].value + " kg" },
                 { label: "BMI", value: "23.7" },
                 { label: "TDEE", value: "~2003", tooltip: "Fabbisogno calorico giornaliero stimato (sedentario)" },
               ].map(m => (
                 <div key={m.label} title={m.tooltip || ""} style={{ background: "white", borderRadius: 8, padding: "8px 6px", border: "0.5px solid #e0e0d8" }}>
-                  <div style={{ fontSize: 9, color: "#999" }}>{m.label}{m.tooltip ? " â¹" : ""}</div>
+                  <div style={{ fontSize: 9, color: "#999" }}>{m.label}{m.tooltip ? " ℹ" : ""}</div>
                   <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{m.value}</div>
                 </div>
               ))}
@@ -522,8 +518,8 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                   <div key={key} style={{ background: "#f9f9f6", borderRadius: 8, padding: "8px 6px", textAlign: "center" }}>
                     <div style={{ fontSize: 9, color: "#999", marginBottom: 4 }}>{label}</div>
                     {editingBody
-                      ? <input type="number" value={bodyData[key]} onChange={e => setBodyData(p => ({ ...p, [key]: e.target.value }))} placeholder="â" style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 14, fontWeight: 500, color: "#1a1a1a", outline: "none", ...f }} />
-                      : <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>{bodyData[key] ? bodyData[key] + unit : "â"}</div>}
+                      ? <input type="number" value={bodyData[key]} onChange={e => setBodyData(p => ({ ...p, [key]: e.target.value }))} placeholder="—" style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 14, fontWeight: 500, color: "#1a1a1a", outline: "none", ...f }} />
+                      : <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>{bodyData[key] ? bodyData[key] + unit : "—"}</div>}
                   </div>
                 ))}
               </div>
@@ -546,7 +542,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                   <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{block.title}</div>
                   <div style={{ fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getBlockValue(block.id)}</div>
                 </div>
-                {block.id === "piano" && <span style={{ fontSize: 11, color: "#1D9E75", flexShrink: 0 }}>{pianoOpen ? "Chiudi" : "Apri â"}</span>}
+                {block.id === "piano" && <span style={{ fontSize: 11, color: "#1D9E75", flexShrink: 0 }}>{pianoOpen ? "Chiudi" : "Apri →"}</span>}
               </div>
             ))}
 
@@ -556,14 +552,14 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>Il mio piano</div>
-                    <div style={{ fontSize: 10, color: "#999", marginTop: 2 }}>{piano.durata_settimane} sett. Â· Solo allenamento</div>
+                    <div style={{ fontSize: 10, color: "#999", marginTop: 2 }}>{piano.durata_settimane} sett. · Solo allenamento</div>
                   </div>
 
                 </div>
                 {piano?.fasi?.map((fase, fi) => (
                   <div key={fi} style={{ background: fi === 0 ? "#f0faf5" : "#f9f9f6", borderRadius: 10, border: `0.5px solid ${fi === 0 ? "#b8e8d0" : "#e8e8e0"}`, padding: 12, marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Fase {fase.numero} â {fase.nome}</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Fase {fase.numero} — {fase.nome}</span>
                       {fi === 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, background: "#E1F5EE", color: "#0F6E56" }}>In corso</span>}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 }}>
@@ -591,7 +587,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                     onClick={updatePianoFromComment}
                     disabled={pianoUpdateLoading || !pianoComment.trim()}
                     style={{ width: "100%", marginTop: 8, padding: 10, background: pianoUpdateLoading || !pianoComment.trim() ? "#f0f0e8" : "#1a1a1a", border: "none", borderRadius: 8, color: pianoUpdateLoading || !pianoComment.trim() ? "#999" : "white", fontSize: 12, cursor: pianoUpdateLoading || !pianoComment.trim() ? "default" : "pointer", ...f }}>
-                    {pianoUpdateLoading ? "Aggiornamento in corso..." : "â³ Aggiorna piano"}
+                    {pianoUpdateLoading ? "Aggiornamento in corso..." : "⟳ Aggiorna piano"}
                   </button>
                 </div>
               </div>
@@ -599,7 +595,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
           </div>
         )}
 
-        {/* ââââââââââââââââââ DIETA ââââââââââââââââââ */}
+        {/* ══════════════════ DIETA ══════════════════ */}
         {activeTab === "dieta" && (
           <div style={{ padding: "24px 16px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -612,7 +608,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: dietaCaricata ? 12 : 0 }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>
-                    {dietaCaricata ? `â ${dieta.fonte}` : "Nessuna dieta caricata"}
+                    {dietaCaricata ? `✓ ${dieta.fonte}` : "Nessuna dieta caricata"}
                   </div>
                   {dietaCaricata && <div style={{ fontSize: 10, color: "#0F6E56", marginTop: 2 }}>Caricata il {dieta.data_caricamento}</div>}
                 </div>
@@ -654,7 +650,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
                       <a href={dieta.pdf_url} target="_blank" rel="noopener noreferrer"
                         style={{ flex: 1, display: "block", padding: "8px 0", border: "0.5px solid #1D9E75", borderRadius: 8, color: "#1D9E75", fontSize: 12, textAlign: "center", textDecoration: "none", ...f }}>
-                        Apri la dieta completa â
+                        Apri la dieta completa →
                       </a>
                       <button onClick={() => { setPdfUrlInput(dieta.pdf_url || ""); setEditingPdfUrl(true); }}
                         style={{ fontSize: 10, color: "#999", border: "0.5px solid #ddd", borderRadius: 6, padding: "4px 8px", background: "transparent", cursor: "pointer", ...f }}>modifica</button>
@@ -669,7 +665,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               )}
               {!dietaCaricata && (
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>
-                  Carica il PDF della tua nutrizionista â Claude estrarrÃ  automaticamente calorie e macro per ogni giorno.
+                  Carica il PDF della tua nutrizionista — Claude estrarrà automaticamente calorie e macro per ogni giorno.
                 </div>
               )}
             </div>
@@ -720,17 +716,17 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                               <div key={k}><div style={{ fontSize: 9, color: "#999" }}>{l}</div><input type="number" value={food[k]} onChange={e => updateFood(meal, food.id, k, e.target.value)} style={{ width: "100%", border: "none", borderBottom: "1px solid #1D9E75", background: "transparent", fontSize: 12, color: "#1a1a1a", outline: "none", ...f }} /></div>
                             ))}
                           </div>
-                          <button onClick={() => setEditingFood(null)} style={{ fontSize: 10, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", marginTop: 4, ...f }}>â Salva</button>
+                          <button onClick={() => setEditingFood(null)} style={{ fontSize: 10, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", marginTop: 4, ...f }}>✓ Salva</button>
                         </div>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div>
                             <div style={{ fontSize: 11, color: "#1a1a1a" }}>{food.nome}</div>
-                            <div style={{ fontSize: 10, color: "#999" }}>{Math.round(food.calorie)}kcal Â· P{Math.round(food.proteine_g)}g Â· C{Math.round(food.carboidrati_g)}g Â· F{Math.round(food.grassi_g)}g</div>
+                            <div style={{ fontSize: 10, color: "#999" }}>{Math.round(food.calorie)}kcal · P{Math.round(food.proteine_g)}g · C{Math.round(food.carboidrati_g)}g · F{Math.round(food.grassi_g)}g</div>
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={() => setEditingFood(food.id)} style={{ fontSize: 10, color: "#378ADD", background: "transparent", border: "none", cursor: "pointer", ...f }}>modifica</button>
-                            <button onClick={() => removeFood(meal, food.id)} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>
+                            <button onClick={() => removeFood(meal, food.id)} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
                           </div>
                         </div>
                       )}
@@ -741,13 +737,13 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                         <input value={foodSearch} onChange={e => setFoodSearch(e.target.value)} placeholder="Es. petto di pollo 150g" onKeyDown={e => e.key === "Enter" && searchFood(foodSearch)} style={{ flex: 1, padding: "7px 10px", border: "0.5px solid #e0e0d8", borderRadius: 8, fontSize: 12, background: "white", color: "#1a1a1a", outline: "none", ...f }} />
                         <button onClick={() => searchFood(foodSearch)} style={{ padding: "7px 12px", background: "#1D9E75", border: "none", borderRadius: 8, color: "white", fontSize: 12, cursor: "pointer", ...f }}>Cerca</button>
-                        <button onClick={() => { setAddingMeal(null); setFoodSearch(""); setFoodResults([]); }} style={{ padding: "7px 10px", border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>â</button>
+                        <button onClick={() => { setAddingMeal(null); setFoodSearch(""); setFoodResults([]); }} style={{ padding: "7px 10px", border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>✕</button>
                       </div>
                       {foodLoading && <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "8px 0" }}>Ricerca in corso...</div>}
                       {foodResults.map((fr, i) => (
                         <div key={i} onClick={() => addFood(meal, fr)} style={{ padding: "8px 10px", border: "0.5px solid #e0e0d8", borderRadius: 8, marginBottom: 4, cursor: "pointer", background: "white" }}>
                           <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{fr.nome}</div>
-                          <div style={{ fontSize: 10, color: "#999" }}>{Math.round(fr.calorie)}kcal Â· P{Math.round(fr.proteine_g)}g Â· C{Math.round(fr.carboidrati_g)}g Â· F{Math.round(fr.grassi_g)}g</div>
+                          <div style={{ fontSize: 10, color: "#999" }}>{Math.round(fr.calorie)}kcal · P{Math.round(fr.proteine_g)}g · C{Math.round(fr.carboidrati_g)}g · F{Math.round(fr.grassi_g)}g</div>
                         </div>
                       ))}
                     </div>
@@ -758,15 +754,15 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
           </div>
         )}
 
-        {/* ââââââââââââââââââ ALLENAMENTO ââââââââââââââââââ */}
+        {/* ══════════════════ ALLENAMENTO ══════════════════ */}
         {activeTab === "allenamento" && (
           <div style={{ padding: "24px 16px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h1 style={{ fontSize: 22, fontWeight: 400, color: "#1a1a1a" }}>Allenamento</h1>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={() => setCalWeekOffset(p => p - 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>â¹</button>
-                <span style={{ fontSize: 10, color: "#999" }}>{weekDays[0].getDate()}/{weekDays[0].getMonth()+1} â {weekDays[6].getDate()}/{weekDays[6].getMonth()+1}</span>
-                <button onClick={() => setCalWeekOffset(p => p + 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>âº</button>
+                <button onClick={() => setCalWeekOffset(p => p - 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>‹</button>
+                <span style={{ fontSize: 10, color: "#999" }}>{weekDays[0].getDate()}/{weekDays[0].getMonth()+1} — {weekDays[6].getDate()}/{weekDays[6].getMonth()+1}</span>
+                <button onClick={() => setCalWeekOffset(p => p + 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>›</button>
               </div>
             </div>
 
@@ -778,7 +774,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>
-                      {phase?.nome ? `Fase ${phase.numero} â ${phase.nome}` : "Fase 1"} Â· Settimana {weekNum}
+                      {phase?.nome ? `Fase ${phase.numero} — ${phase.nome}` : "Fase 1"} · Settimana {weekNum}
                     </div>
                     <div style={{ fontSize: 10, color: "#999" }}>{phase?.allenamenti_settimana || 2} allenamenti/sett.</div>
                   </div>
@@ -805,7 +801,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                             style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 20, border: `1.5px solid ${isSelected ? w.color : isAssigned ? w.color : "#e0e0d8"}`, background: isSelected ? w.color : isAssigned ? w.color + "22" : "white", color: isSelected ? "white" : isAssigned ? w.color : "#999", fontSize: 11, cursor: "pointer", opacity: isAssigned && !isSelected ? 0.7 : 1, ...f }}>
                             <span>{w.emoji}</span>
                             <span>{w.label}</span>
-                            {isAssigned && <span style={{ fontSize: 9 }}>â</span>}
+                            {isAssigned && <span style={{ fontSize: 9 }}>✓</span>}
                           </button>
                         );
                       })}
@@ -917,7 +913,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                 </div>
 
                 {displaySchedule?.tipo === "riposo" ? (
-                  <div style={{ textAlign: "center", padding: "16px 0", color: "#bbb", fontSize: 13 }}>Giorno di riposo â recupero attivo consigliato</div>
+                  <div style={{ textAlign: "center", padding: "16px 0", color: "#bbb", fontSize: 13 }}>Giorno di riposo — recupero attivo consigliato</div>
                 ) : (
                   <>
                     {displaySchedule?.esercizi?.map((ex, ei) => {
@@ -926,9 +922,9 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                         <div key={ei} style={{ borderTop: "0.5px solid #f0f0e8", paddingTop: 10, marginTop: 10 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                             <span style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{ex.nome}</span>
-                            <span style={{ fontSize: 10, color: "#999", textAlign: "right", marginLeft: 8, flexShrink: 0 }}>{ex.serie}Ã {ex.ripetizioni}{ex.recupero_secondi > 0 ? ` Â· ${ex.recupero_secondi}s` : ""}</span>
+                            <span style={{ fontSize: 10, color: "#999", textAlign: "right", marginLeft: 8, flexShrink: 0 }}>{ex.serie}× {ex.ripetizioni}{ex.recupero_secondi > 0 ? ` · ${ex.recupero_secondi}s` : ""}</span>
                           </div>
-                          {ex.note_tecniche && <div style={{ fontSize: 10, color: "#888", background: "#f9f9f6", borderRadius: 6, padding: "4px 8px", marginBottom: 6, fontStyle: "italic", lineHeight: 1.5 }}>â¹ {ex.note_tecniche}</div>}
+                          {ex.note_tecniche && <div style={{ fontSize: 10, color: "#888", background: "#f9f9f6", borderRadius: 6, padding: "4px 8px", marginBottom: 6, fontStyle: "italic", lineHeight: 1.5 }}>ℹ {ex.note_tecniche}</div>}
                           {ex.recupero_secondi > 0 && (
                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                               <span style={{ fontSize: 10, color: "#999" }}>Peso</span>
@@ -944,7 +940,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                     <div style={{ borderTop: "0.5px solid #f0f0e8", paddingTop: 10, marginTop: 10 }}>
                       <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>Come ti sei sentito?</div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        {["ð","ð","ð"].map((e, i) => (
+                        {["😞","😐","😊"].map((e, i) => (
                           <div key={i} onClick={() => setWorkoutMood(p => ({ ...p, [selectedDay]: i }))}
                             style={{ flex: 1, padding: 8, border: `0.5px solid ${workoutMood[selectedDay] === i ? "#1D9E75" : "#e0e0d8"}`, borderRadius: 8, textAlign: "center", cursor: "pointer", fontSize: 18, background: workoutMood[selectedDay] === i ? "#E1F5EE" : "#f9f9f6" }}>{e}</div>
                         ))}
@@ -956,13 +952,13 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
 
                     <button onClick={() => setSavedSessions(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: { date: selectedDayDate.toLocaleDateString("it-IT"), savedAt: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) } }))}
                       style={{ width: "100%", marginTop: 10, padding: 10, background: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "#f0faf5" : "#1D9E75", border: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "0.5px solid #1D9E75" : "none", borderRadius: 8, color: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "#0F6E56" : "white", fontSize: 13, cursor: "pointer", ...f }}>
-                      {savedSessions[`${calWeekOffset}-${selectedDay}`] ? `â Salvato alle ${savedSessions[`${calWeekOffset}-${selectedDay}`].savedAt}` : "Salva sessione"}
+                      {savedSessions[`${calWeekOffset}-${selectedDay}`] ? `✓ Salvato alle ${savedSessions[`${calWeekOffset}-${selectedDay}`].savedAt}` : "Salva sessione"}
                     </button>
 
                     {savedSessions[`${calWeekOffset}-${selectedDay}`] && (
                       <div style={{ marginTop: 12, borderTop: "0.5px solid #f0f0e8", paddingTop: 12 }}>
                         <div style={{ fontSize: 11, fontWeight: 500, color: "#1a1a1a", marginBottom: 6 }}>Feedback adattivo</div>
-                        <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>Dimmi com'Ã¨ andata â carichi, difficoltÃ , sensazioni, dolori</div>
+                        <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>Dimmi com'è andata — carichi, difficoltà, sensazioni, dolori</div>
                         <textarea
                           value={feedbackText[`${calWeekOffset}-${selectedDay}`] || ""}
                           onChange={e => setFeedbackText(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: e.target.value }))}
@@ -974,7 +970,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                           onClick={() => requestAdaptivePlan(`${calWeekOffset}-${selectedDay}`)}
                           disabled={adaptiveLoading}
                           style={{ width: "100%", marginTop: 8, padding: 10, background: adaptiveLoading ? "#f0f0e8" : "#1a1a1a", border: "none", borderRadius: 8, color: adaptiveLoading ? "#999" : "white", fontSize: 12, cursor: adaptiveLoading ? "default" : "pointer", ...f }}>
-                          {adaptiveLoading ? "Elaborazione in corso..." : "â³ Aggiorna piano con il tuo feedback"}
+                          {adaptiveLoading ? "Elaborazione in corso..." : "⟳ Aggiorna piano con il tuo feedback"}
                         </button>
                         {adaptiveResponse[`${calWeekOffset}-${selectedDay}`] && (
                           <div style={{ marginTop: 10, padding: 12, background: "#f0faf5", borderRadius: 8, border: "0.5px solid #b8e8d0" }}>
@@ -989,12 +985,12 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               </div>
               ) : (
                 <div style={{ ...card(), textAlign: "center", color: "#bbb", fontSize: 13 }}>
-                  {workoutAssignments[dateKey(selectedDayDate)] ? "Caricamento scheda..." : "Nessun allenamento assegnato â tocca un allenamento sopra e poi questo giorno"}
+                  {workoutAssignments[dateKey(selectedDayDate)] ? "Caricamento scheda..." : "Nessun allenamento assegnato — tocca un allenamento sopra e poi questo giorno"}
                 </div>
               );
             })()}
 
-            {/* AttivitÃ  extra */}
+            {/* Attività extra */}
             {(extraSaved[`${calWeekOffset}-${selectedDay}`] || []).map((act, i) => {
               const key = `${calWeekOffset}-${selectedDay}-${i}`;
               const isExpanded = extraExpanded[key];
@@ -1003,16 +999,16 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                 <div key={i} style={{ ...card(), background: "#f9f9f6", marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{act.type === "palestra" ? "ð Palestra extra" : `ð ${act.nome}`}</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{act.type === "palestra" ? "🏋 Palestra extra" : `🏃 ${act.nome}`}</div>
                       <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
-                        {act.type === "altra" && <>{act.tempo && `${act.tempo} min`}{act.km && ` Â· ${act.km} km`}{act.calorie && ` Â· ${act.calorie} kcal`}{act.km && act.tempo && ` Â· ${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km`}</>}
+                        {act.type === "altra" && <>{act.tempo && `${act.tempo} min`}{act.km && ` · ${act.km} km`}{act.calorie && ` · ${act.calorie} kcal`}{act.km && act.tempo && ` · ${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km`}</>}
                         {act.type === "palestra" && `${act.esercizi?.length} esercizi`}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                       <button onClick={() => setExtraExpanded(p => ({ ...p, [key]: !p[key] }))} style={{ fontSize: 10, color: "#378ADD", background: "transparent", border: "none", cursor: "pointer", ...f }}>{isExpanded ? "chiudi" : "dettagli"}</button>
                       <button onClick={() => { setExtraEditing(p => ({ ...p, [key]: !p[key] })); setExtraExpanded(p => ({ ...p, [key]: true })); }} style={{ fontSize: 10, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", ...f }}>{isEditing ? "chiudi" : "modifica"}</button>
-                      <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].filter((_, j) => j !== i) }))} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>
+                      <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].filter((_, j) => j !== i) }))} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
                     </div>
                   </div>
 
@@ -1020,7 +1016,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                     <div style={{ marginTop: 10, borderTop: "0.5px solid #e0e0d8", paddingTop: 10 }}>
                       {isEditing ? (
                         <div>
-                          {[["Nome attivitÃ ", "nome", "text"], ["Durata (min)", "tempo", "number"], ["Calorie", "calorie", "number"], ["Distanza (km)", "km", "number"]].map(([label, k, type]) => (
+                          {[["Nome attività", "nome", "text"], ["Durata (min)", "tempo", "number"], ["Calorie", "calorie", "number"], ["Distanza (km)", "km", "number"]].map(([label, k, type]) => (
                             <div key={k} style={{ marginBottom: 8 }}>
                               <div style={{ fontSize: 10, color: "#999", marginBottom: 3 }}>{label}</div>
                               <input type={type} value={act[k] || ""} onChange={e => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, [k]: e.target.value } : x) }))}
@@ -1031,7 +1027,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                         </div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          {[["Durata", act.tempo ? act.tempo + " min" : "â"], ["Calorie", act.calorie ? act.calorie + " kcal" : "â"], ["Distanza", act.km ? act.km + " km" : "â"], ["Passo", act.km && act.tempo ? `${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km` : "â"]].map(([l, v]) => (
+                          {[["Durata", act.tempo ? act.tempo + " min" : "—"], ["Calorie", act.calorie ? act.calorie + " kcal" : "—"], ["Distanza", act.km ? act.km + " km" : "—"], ["Passo", act.km && act.tempo ? `${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km` : "—"]].map(([l, v]) => (
                             <div key={l} style={{ background: "white", borderRadius: 6, padding: "6px 8px" }}>
                               <div style={{ fontSize: 9, color: "#999" }}>{l}</div>
                               <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>{v}</div>
@@ -1050,7 +1046,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                             <div key={ei} style={{ background: "white", borderRadius: 8, padding: 8, marginBottom: 8 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                                 <div style={{ fontSize: 11, fontWeight: 500, color: "#1a1a1a" }}>Es. {ei + 1}</div>
-                                {act.esercizi.length > 1 && <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.filter((_, k) => k !== ei) } : x) }))} style={{ fontSize: 9, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>}
+                                {act.esercizi.length > 1 && <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.filter((_, k) => k !== ei) } : x) }))} style={{ fontSize: 9, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>}
                               </div>
                               <input value={ex.nome} onChange={e => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.map((z, k) => k === ei ? { ...z, nome: e.target.value } : z) } : x) }))}
                                 placeholder="Nome esercizio" style={{ width: "100%", padding: "5px 8px", border: "0.5px solid #e0e0d8", borderRadius: 6, fontSize: 11, marginBottom: 6, background: "#f9f9f6", color: "#1a1a1a", outline: "none", boxSizing: "border-box", ...f }} />
@@ -1070,7 +1066,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                         act.esercizi?.map((ex, ei) => (
                           <div key={ei} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "0.5px solid #f0f0e8", fontSize: 11 }}>
                             <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{ex.nome || `Esercizio ${ei+1}`}</span>
-                            <span style={{ color: "#999" }}>{ex.serie && ex.rip ? `${ex.serie}Ã${ex.rip}` : ""}{ex.peso ? ` Â· ${ex.peso}kg` : ""}{ex.recupero ? ` Â· ${ex.recupero}s` : ""}</span>
+                            <span style={{ color: "#999" }}>{ex.serie && ex.rip ? `${ex.serie}×${ex.rip}` : ""}{ex.peso ? ` · ${ex.peso}kg` : ""}{ex.recupero ? ` · ${ex.recupero}s` : ""}</span>
                           </div>
                         ))
                       )}
@@ -1081,32 +1077,32 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
             })}
 
             {!extraOpen ? (
-              <button onClick={() => setExtraOpen(true)} style={{ width: "100%", padding: 10, border: "0.5px dashed #ccc", borderRadius: 10, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", marginTop: 8, ...f }}>+ aggiungi attivitÃ  extra</button>
+              <button onClick={() => setExtraOpen(true)} style={{ width: "100%", padding: 10, border: "0.5px dashed #ccc", borderRadius: 10, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", marginTop: 8, ...f }}>+ aggiungi attività extra</button>
             ) : (
               <div style={{ ...card(), marginTop: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>AttivitÃ  extra</div>
-                  <button onClick={() => { setExtraOpen(false); setExtraType(null); setExtraAttivita({ nome: "", tempo: "", calorie: "", km: "" }); setExtraEsercizi([{ nome: "", peso: "", serie: "", rip: "", recupero: "" }]); }} style={{ fontSize: 11, color: "#999", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>Attività extra</div>
+                  <button onClick={() => { setExtraOpen(false); setExtraType(null); setExtraAttivita({ nome: "", tempo: "", calorie: "", km: "" }); setExtraEsercizi([{ nome: "", peso: "", serie: "", rip: "", recupero: "" }]); }} style={{ fontSize: 11, color: "#999", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
                 </div>
 
                 {!extraType ? (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <button onClick={() => setExtraType("palestra")}
                       style={{ padding: "14px 10px", border: "0.5px solid #e0e0d8", borderRadius: 10, background: "#f9f9f6", cursor: "pointer", textAlign: "center", ...f }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>ð</div>
+                      <div style={{ fontSize: 22, marginBottom: 4 }}>🏋</div>
                       <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Allenamento pesi</div>
                       <div style={{ fontSize: 10, color: "#999", marginTop: 2 }}>Esercizi, serie, ripetizioni</div>
                     </button>
                     <button onClick={() => setExtraType("altra")}
                       style={{ padding: "14px 10px", border: "0.5px solid #e0e0d8", borderRadius: 10, background: "#f9f9f6", cursor: "pointer", textAlign: "center", ...f }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>ð</div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Altra attivitÃ </div>
+                      <div style={{ fontSize: 22, marginBottom: 4 }}>🏃</div>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Altra attività</div>
                       <div style={{ fontSize: 10, color: "#999", marginTop: 2 }}>Corsa, ciclismo, nuoto...</div>
                     </button>
                   </div>
                 ) : extraType === "altra" ? (
                   <div>
-                    {[["Nome attivitÃ ", "nome", "Es. Corsa, Ciclismo, Nuoto..."], ["Durata (minuti)", "tempo", "Es. 45"], ["Calorie consumate", "calorie", "Es. 320"], ["Distanza (km)", "km", "Es. 5.2"]].map(([label, key, placeholder]) => (
+                    {[["Nome attività", "nome", "Es. Corsa, Ciclismo, Nuoto..."], ["Durata (minuti)", "tempo", "Es. 45"], ["Calorie consumate", "calorie", "Es. 320"], ["Distanza (km)", "km", "Es. 5.2"]].map(([label, key, placeholder]) => (
                       <div key={key} style={{ marginBottom: 10 }}>
                         <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>{label}</div>
                         <input type={key === "nome" ? "text" : "number"} value={extraAttivita[key]} onChange={e => setExtraAttivita(p => ({ ...p, [key]: e.target.value }))}
@@ -1123,9 +1119,9 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>â Indietro</button>
+                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>← Indietro</button>
                       <button onClick={() => { setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: [...(p[`${calWeekOffset}-${selectedDay}`] || []), { type: "altra", ...extraAttivita, data: selectedDayDate.toLocaleDateString("it-IT") }] })); setExtraOpen(false); setExtraType(null); setExtraAttivita({ nome: "", tempo: "", calorie: "", km: "" }); }}
-                        style={{ flex: 2, padding: 9, background: "#1D9E75", border: "none", borderRadius: 8, color: "white", fontSize: 12, cursor: "pointer", ...f }}>Salva attivitÃ </button>
+                        style={{ flex: 2, padding: 9, background: "#1D9E75", border: "none", borderRadius: 8, color: "white", fontSize: 12, cursor: "pointer", ...f }}>Salva attività</button>
                     </div>
                   </div>
                 ) : (
@@ -1135,7 +1131,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                           <div style={{ fontSize: 11, fontWeight: 500, color: "#1a1a1a" }}>Esercizio {ei + 1}</div>
                           {extraEsercizi.length > 1 && (
-                            <button onClick={() => setExtraEsercizi(p => p.filter((_, j) => j !== ei))} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>
+                            <button onClick={() => setExtraEsercizi(p => p.filter((_, j) => j !== ei))} style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
                           )}
                         </div>
                         <input value={ex.nome} onChange={e => setExtraEsercizi(p => p.map((x, j) => j === ei ? { ...x, nome: e.target.value } : x))}
@@ -1157,7 +1153,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                       + aggiungi esercizio
                     </button>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>â Indietro</button>
+                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 8, background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", ...f }}>← Indietro</button>
                       <button onClick={() => { setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: [...(p[`${calWeekOffset}-${selectedDay}`] || []), { type: "palestra", esercizi: extraEsercizi, data: selectedDayDate.toLocaleDateString("it-IT") }] })); setExtraOpen(false); setExtraType(null); setExtraEsercizi([{ nome: "", peso: "", serie: "", rip: "", recupero: "" }]); }}
                         style={{ flex: 2, padding: 9, background: "#1D9E75", border: "none", borderRadius: 8, color: "white", fontSize: 12, cursor: "pointer", ...f }}>Salva allenamento</button>
                     </div>
@@ -1168,7 +1164,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
           </div>
         )}
 
-        {/* ââââââââââââââââââ MENTE ââââââââââââââââââ */}
+        {/* ══════════════════ MENTE ══════════════════ */}
         {activeTab === "mente" && (
           <div style={{ padding: "24px 16px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -1180,20 +1176,20 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               <div style={{ fontSize: 11, color: "#999", marginBottom: 10 }}>Streak costanza</div>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
                 <div style={{ fontSize: 40, fontWeight: 400, color: "#1D9E75" }}>{streak}</div>
-                <div style={{ fontSize: 12, color: "#999", lineHeight: 1.6 }}>giorni consecutivi<br />con almeno un'attivitÃ </div>
+                <div style={{ fontSize: 12, color: "#999", lineHeight: 1.6 }}>giorni consecutivi<br />con almeno un'attività</div>
               </div>
               <div style={{ display: "flex", gap: 4 }}>
                 {["L","M","M","G","V","S","D"].map((d, i) => (
                   <div key={i} style={{ flex: 1, height: 28, borderRadius: 6, background: "#f0f0e8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#bbb" }}>{d}</div>
                 ))}
               </div>
-              <div style={{ fontSize: 11, color: "#1D9E75", marginTop: 10, textAlign: "center" }}>Il tuo percorso inizia oggi ðª</div>
+              <div style={{ fontSize: 11, color: "#1D9E75", marginTop: 10, textAlign: "center" }}>Il tuo percorso inizia oggi 💪</div>
             </div>
 
             <div style={card()}>
               <div style={{ fontSize: 11, color: "#999", marginBottom: 8 }}>Frase del giorno</div>
               <div style={{ fontSize: 13, color: "#1a1a1a", fontStyle: "italic", lineHeight: 1.6, marginBottom: 6 }}>"{todayQuote.text}"</div>
-              <div style={{ fontSize: 10, color: "#999" }}>â {todayQuote.author}</div>
+              <div style={{ fontSize: 10, color: "#999" }}>— {todayQuote.author}</div>
             </div>
 
             <div style={card()}>
@@ -1212,7 +1208,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                   <div style={{ fontSize: 36, fontWeight: 400, color: "#1D9E75", marginBottom: 6 }}>
                     {Math.floor(medSeconds/60).toString().padStart(2,"0")}:{(medSeconds%60).toString().padStart(2,"0")}
                   </div>
-                  <div style={{ fontSize: 11, color: "#999", marginBottom: 12 }}>Inspira 4s Â· tieni 4s Â· espira 6s</div>
+                  <div style={{ fontSize: 11, color: "#999", marginBottom: 12 }}>Inspira 4s · tieni 4s · espira 6s</div>
                   <button onClick={stopMed} style={{ padding: "8px 20px", border: "0.5px solid #E24B4A", borderRadius: 8, background: "transparent", color: "#E24B4A", fontSize: 12, cursor: "pointer", ...f }}>Interrompi</button>
                 </div>
               ) : (
@@ -1240,14 +1236,14 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               <textarea value={diaryText} onChange={e => { setDiaryText(e.target.value); setDiarySaved(false); }} placeholder="Come stai oggi? Scrivi quello che vuoi..." rows={3}
                 style={{ width: "100%", padding: 8, border: "0.5px solid #e0e0d8", borderRadius: 8, background: "#f9f9f6", color: "#1a1a1a", fontSize: 12, resize: "none", outline: "none", ...f }} />
               <button onClick={() => setDiarySaved(true)} style={{ width: "100%", marginTop: 8, padding: 8, border: "0.5px solid #ccc", borderRadius: 8, background: diarySaved ? "#E1F5EE" : "transparent", color: diarySaved ? "#0F6E56" : "#999", fontSize: 12, cursor: "pointer", ...f }}>
-                {diarySaved ? "â Salvato" : "Salva nota"}
+                {diarySaved ? "✓ Salvato" : "Salva nota"}
               </button>
             </div>
           </div>
         )}
       </div>
 
-        {/* ââââââââââââââââââ EDITOR ââââââââââââââââââ */}
+        {/* ══════════════════ EDITOR ══════════════════ */}
         {activeTab === "editor" && (() => {
           const ep = editorPiano || JSON.parse(JSON.stringify(piano));
           const es = editorScheda || JSON.parse(JSON.stringify(schedaAllenamento));
@@ -1262,23 +1258,23 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                     style={{ fontSize: 11, color: "#999", border: "0.5px solid #ddd", borderRadius: 6, padding: "4px 10px", background: "transparent", cursor: "pointer", ...f }}>Reset</button>
                   <button onClick={() => { setPiano(ep); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }}
                     style={{ fontSize: 11, color: "white", background: "#1D9E75", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", ...f }}>
-                    {editorSaved ? "â Salvato" : "Salva piano"}
+                    {editorSaved ? "✓ Salvato" : "Salva piano"}
                   </button>
                 </div>
               </div>
 
               <div style={{ fontSize: 11, color: "#999", background: "#f9f9f6", borderRadius: 8, padding: "8px 12px", marginBottom: 16 }}>
-                ModalitÃ  editor â modifica liberamente il piano e la scheda esercizi. Clicca "Salva piano" per applicare le modifiche.
+                Modalità editor — modifica liberamente il piano e la scheda esercizi. Clicca "Salva piano" per applicare le modifiche.
               </div>
 
-              {/* ââ FASI ââ */}
+              {/* ── FASI ── */}
               <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a", marginBottom: 10 }}>Fasi del piano</div>
               {ep.fasi?.map((fase, fi) => (
                 <div key={fi} style={{ background: "white", border: "0.5px solid #e0e0d8", borderRadius: 12, padding: 14, marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a" }}>Fase {fi + 1}</div>
                     <button onClick={() => setEp(p => ({ ...p, fasi: p.fasi.filter((_, i) => i !== fi) }))}
-                      style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â Rimuovi</button>
+                      style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕ Rimuovi</button>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     {[["Nome", "nome"], ["Settimane (es. 1-4)", "settimane"], ["Allenamenti/sett", "allenamenti_settimana"]].map(([label, key]) => (
@@ -1305,7 +1301,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                 + aggiungi fase
               </button>
 
-              {/* ââ SCHEDE ESERCIZI ââ */}
+              {/* ── SCHEDE ESERCIZI ── */}
               <div style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a", marginBottom: 10 }}>Schede esercizi</div>
               {es.giorni_settimana?.map((scheda, si) => (
                 <div key={si} style={{ background: "white", border: "0.5px solid #e0e0d8", borderRadius: 12, padding: 14, marginBottom: 12 }}>
@@ -1321,7 +1317,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                         placeholder="Titolo scheda" style={{ flex: 1, padding: "4px 8px", border: "0.5px solid #e0e0d8", borderRadius: 6, fontSize: 11, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} />
                     </div>
                     <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.filter((_, i) => i !== si) }))}
-                      style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", flexShrink: 0, marginLeft: 8, ...f }}>â</button>
+                      style={{ fontSize: 10, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", flexShrink: 0, marginLeft: 8, ...f }}>✕</button>
                   </div>
                   <textarea value={scheda.descrizione || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, descrizione: e.target.value } : x) }))}
                     placeholder="Descrizione sessione..." rows={2}
@@ -1333,7 +1329,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ fontSize: 10, color: "#999" }}>Esercizio {ei + 1}</div>
                         <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.filter((_, j) => j !== ei) } : x) }))}
-                          style={{ fontSize: 9, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>â</button>
+                          style={{ fontSize: 9, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
                       </div>
                       <input value={ex.nome || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.map((z, j) => j === ei ? { ...z, nome: e.target.value } : z) } : x) }))}
                         placeholder="Nome esercizio"
@@ -1367,7 +1363,7 @@ Dai 2-3 varianti. Valori riferiti alla quantitÃ  specificata.` }]
               {/* Salva in fondo */}
               <button onClick={() => { setPiano(ep); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }}
                 style={{ width: "100%", padding: 12, background: "#1a1a1a", border: "none", borderRadius: 10, color: "white", fontSize: 13, cursor: "pointer", ...f }}>
-                {editorSaved ? "â Piano salvato" : "Salva piano"}
+                {editorSaved ? "✓ Piano salvato" : "Salva piano"}
               </button>
             </div>
           );
