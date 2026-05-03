@@ -150,10 +150,11 @@ export default function App() {
   ]);
   const [dragIdx, setDragIdx] = useState(null);
   const todayKey = new Date().toISOString().split('T')[0];
+  const [selectedMealDate, setSelectedMealDate] = useState(new Date().toISOString().split('T')[0]);
   const [meals, setMealsRaw] = useState(() => {
     try { const s = localStorage.getItem('meals_' + new Date().toISOString().split('T')[0]); return s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; } catch { return { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; }
   });
-  const setMeals = (v) => { const next = typeof v === 'function' ? v(meals) : v; setMealsRaw(next); try { localStorage.setItem('meals_' + new Date().toISOString().split('T')[0], JSON.stringify(next)); } catch {} };
+  const setMeals = (v) => { const next = typeof v === 'function' ? v(meals) : v; setMealsRaw(next); try { localStorage.setItem('meals_' + selectedMealDate, JSON.stringify(next)); } catch {} };
   const [addingMeal, setAddingMeal] = useState(null);
   const [foodSearch, setFoodSearch] = useState("");
   const [foodResults, setFoodResults] = useState([]);
@@ -251,6 +252,18 @@ export default function App() {
       default: return "—";
     }
   }
+
+  function loadMealsForDate(dateKey) {
+    setSelectedMealDate(dateKey);
+    try {
+      const s = localStorage.getItem('meals_' + dateKey);
+      setMealsRaw(s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
+    } catch {
+      setMealsRaw({ Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
+    }
+  }
+
+  const isToday = selectedMealDate === new Date().toISOString().split('T')[0];
 
   const totals = Object.values(meals).flat().reduce((a, f) => ({
     calorie: a.calorie + (f.calorie || 0), proteine: a.proteine + (f.proteine_g || 0),
@@ -595,9 +608,35 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
         {/* ══════════════════ DIETA ══════════════════ */}
         {activeTab === "dieta" && (
           <div style={{ padding: "24px 16px 16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 400, color: "#1a1a1a" }}>Alimentazione</h1>
-              <span style={{ fontSize: 11, color: "#999" }}>{new Date().toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}</span>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 400, color: "#1a1a1a" }}>Alimentazione</h1>
+                <span style={{ fontSize: 12, color: isToday ? "#1D9E75" : "#999", fontWeight: isToday ? 500 : 400 }}>
+                  {new Date(selectedMealDate + 'T12:00:00').toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
+                </span>
+              </div>
+              {/* Selettore data — scorri tra i giorni */}
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                {Array.from({ length: 14 }, (_, i) => {
+                  const d = new Date(); d.setDate(d.getDate() - (13 - i));
+                  const dk = d.toISOString().split('T')[0];
+                  const hasMeals = (() => { try { const s = localStorage.getItem('meals_' + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
+                  const isSelected = dk === selectedMealDate;
+                  const isTodayDay = dk === new Date().toISOString().split('T')[0];
+                  return (
+                    <button key={dk} onClick={() => loadMealsForDate(dk)}
+                      style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 10px", borderRadius: 10, border: `1px solid ${isSelected ? "#1D9E75" : "#e0e0d8"}`, background: isSelected ? "#1D9E75" : hasMeals ? "#f0faf5" : "white", cursor: "pointer", minWidth: 44, ...f }}>
+                      <span style={{ fontSize: 9, color: isSelected ? "white" : "#999", textTransform: "uppercase" }}>
+                        {d.toLocaleDateString("it-IT", { weekday: "short" })}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: isSelected ? "white" : isTodayDay ? "#1D9E75" : "#1a1a1a" }}>
+                        {d.getDate()}
+                      </span>
+                      {hasMeals && !isSelected && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#1D9E75", marginTop: 2 }} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Card dieta caricata / upload */}
@@ -611,7 +650,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
                 </div>
                 <div>
                   <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => handleDietaUpload(e.target.files[0])} />
-                  <button onClick={() => fileInputRef.current?.click()} style={{ fontSize: 11, color: "#1D9E75", border: "0.5px solid #1D9E75", borderRadius: 6, padding: "3px 10px", background: "transparent", cursor: "pointer", ...f }}>
+                  <button onClick={() => fileInputRef.current?.click()} style={{ fontSize: 12, color: "#1D9E75", border: "0.5px solid #1D9E75", borderRadius: 8, padding: "6px 14px", background: "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent", ...f }}>
                     {dietaCaricata ? "Aggiorna PDF" : "Carica PDF"}
                   </button>
                 </div>
@@ -691,6 +730,7 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
             </div>
 
             {/* Pasti tracker */}
+            {!isToday && <div style={{ background: "#f9f9f6", borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: "#999", textAlign: "center" }}>Storico del {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "long" })} — sola lettura</div>}
             {["Colazione","Spuntino","Pranzo","Merenda","Cena"].map(meal => {
               const mFoods = meals[meal];
               const mKcal = Math.round(mFoods.reduce((a, f) => a + (f.calorie || 0), 0));
