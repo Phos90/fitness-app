@@ -894,30 +894,32 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                         <span style={{ fontSize: 18 }}>🔍</span>
                         <span style={{ fontSize: 14 }}>Cerca</span>
                       </button>
-                      {/* Foto — label wraps input direttamente, iOS safe */}
-                      <label onClick={() => setFoodResults([])}
-                        style={{ flex: 1, ...S.btnSmall(photoMode === "camera" ? C.green : C.textTertiary), justifyContent: "center", gap: 4, display: "flex", alignItems: "center", cursor: "pointer" }}>
-                        <span style={{ fontSize: 18 }}>📷</span>
-                        <span style={{ fontSize: 14 }}>Foto</span>
-                        <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                      {/* Foto — input visibile con opacity 0 sopra il bottone, iOS safe */}
+                      <div style={{ flex: 1, position: "relative" }}>
+                        <div style={{ ...S.btnSmall(photoMode === "camera" ? C.green : C.textTertiary), justifyContent: "center", gap: 4, display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                          <span style={{ fontSize: 18 }}>📷</span>
+                          <span style={{ fontSize: 14 }}>Foto</span>
+                        </div>
+                        <input type="file" accept="image/*" capture="environment"
+                          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
                           onChange={e => {
                             const f = e.target.files?.[0];
-                            if (f) { setPhotoMode("camera"); searchFoodByPhoto(f, meal); }
-                            e.target.value = "";
+                            if (f) { setFoodResults([]); setPhotoMode("camera"); searchFoodByPhoto(f, meal); }
                           }} />
-                      </label>
-                      {/* Galleria — label wraps input direttamente, iOS safe */}
-                      <label onClick={() => setFoodResults([])}
-                        style={{ flex: 1, ...S.btnSmall(photoMode === "gallery" ? C.green : C.textTertiary), justifyContent: "center", gap: 4, display: "flex", alignItems: "center", cursor: "pointer" }}>
-                        <span style={{ fontSize: 18 }}>🖼️</span>
-                        <span style={{ fontSize: 14 }}>Galleria</span>
-                        <input type="file" accept="image/*" style={{ display: "none" }}
+                      </div>
+                      {/* Galleria — input visibile con opacity 0 sopra il bottone, iOS safe */}
+                      <div style={{ flex: 1, position: "relative" }}>
+                        <div style={{ ...S.btnSmall(photoMode === "gallery" ? C.green : C.textTertiary), justifyContent: "center", gap: 4, display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                          <span style={{ fontSize: 18 }}>🖼️</span>
+                          <span style={{ fontSize: 14 }}>Galleria</span>
+                        </div>
+                        <input type="file" accept="image/*"
+                          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
                           onChange={e => {
                             const f = e.target.files?.[0];
-                            if (f) { setPhotoMode("gallery"); searchFoodByPhoto(f, meal); }
-                            e.target.value = "";
+                            if (f) { setFoodResults([]); setPhotoMode("gallery"); searchFoodByPhoto(f, meal); }
                           }} />
-                      </label>
+                      </div>
                     </div>
 
                     {/* Campo testo */}
