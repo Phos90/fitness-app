@@ -188,6 +188,9 @@ export default function App() {
   const [foodResults, setFoodResults] = useState([]);
   const [foodLoading, setFoodLoading] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
+  const [photoMode, setPhotoMode] = useState(null); // "camera" | "gallery"
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
   const [workoutNotes, setWorkoutNotes] = useState({});
@@ -215,13 +218,6 @@ export default function App() {
   const [dayMenu, setDayMenu] = useState(null); // { dk, wInfo } — context menu for assigned day
   const PROGRAM_START = new Date("2026-04-21"); // inizio percorso
   const [streak] = useState(0);
-  const [diaryText, setDiaryText] = useState("");
-  const [diarySaved, setDiarySaved] = useState(false);
-  const [selectedMedTime, setSelectedMedTime] = useState(10);
-  const [medRunning, setMedRunning] = useState(false);
-  const [medSeconds, setMedSeconds] = useState(0);
-  const medRef = useRef(null);
-  const [checkin, setCheckin] = useState({ diet: 0, training: 0, mental: 0 });
   const fileInputRef = useRef(null);
   const todayQuote = MOTIVATIONAL_QUOTES[new Date().getDay() % MOTIVATIONAL_QUOTES.length];
 
@@ -383,12 +379,7 @@ export default function App() {
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
-          system: `Sei un personal trainer con metodologia Project Invictus.
-La dieta è gestita esternamente — NON menzionarla.
-Analizza il feedback della sessione e rispondi con suggerimenti adattativi concreti per la prossima sessione.
-Principi invariabili: infortuni = vincoli assoluti, progressione graduale, costanza prima dell'intensità.
-Dati atleta: Flavio, 35 anni, 75kg, epitrocleite gomito destro (trattata). Fase 1 Riattivazione.
-Rispondi in italiano, max 150 parole, diretto e pratico. Struttura: 1) Valutazione 2) Cosa cambia 3) Obiettivo prossima sessione.`,
+          system: `PT esperto. Analizza feedback sessione, suggerisci prossima. Atleta: Flavio 35a 75kg, epitrocleite dx trattata. NO dieta. Max 120 parole. Formato: 1)Valutazione 2)Cambiamenti 3)Prossimo obiettivo.`,
           messages: [{
             role: "user",
             content: `Sessione del ${session?.date || "oggi"}.
@@ -418,15 +409,12 @@ Cosa mi suggerisci per la prossima sessione?`
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 8000,
-          system: `Sei un personal trainer esperto. Aggiorna il piano di allenamento secondo i commenti dell'utente.
-Dati utente fissi: Flavio, 35 anni, 75kg, 178cm, epitrocleite gomito destro (trattata), sala pesi + corsa Villa Pamphili.
-ISTRUZIONE CRITICA: Rispondi SOLO con JSON puro valido. Zero testo prima o dopo. Zero backtick. Zero markdown.
-Formato esatto richiesto:
-{"piano":{"obiettivo":"string","durata_settimane":16,"note_generali":"string","fasi":[{"numero":1,"nome":"string","settimane":"1-4","allenamenti_settimana":3,"note":"string"},{"numero":2,"nome":"string","settimane":"5-10","allenamenti_settimana":3,"note":"string"},{"numero":3,"nome":"string","settimane":"11-16","allenamenti_settimana":3,"note":"string"}]},"scheda_allenamento":{"giorni_settimana":[{"tipo":"palestra","titolo":"string","descrizione":"string","esercizi":[{"nome":"string","serie":3,"ripetizioni":"10-12","recupero_secondi":90,"note_tecniche":"string"}]},{"tipo":"corsa","titolo":"string","descrizione":"string","esercizi":[{"nome":"string","serie":1,"ripetizioni":"30 minuti","recupero_secondi":0,"note_tecniche":"string"}]}]}}`,
+          max_tokens: 3000,
+          system: `PT esperto. Utente: Flavio 35a 75kg 178cm, epitrocleite dx trattata, sala pesi + corsa. Rispondi SOLO JSON puro:
+{"piano":{"obiettivo":"","durata_settimane":16,"note_generali":"","fasi":[{"numero":1,"nome":"","settimane":"1-4","allenamenti_settimana":3,"note":""}]},"scheda_allenamento":{"giorni_settimana":[{"tipo":"palestra","titolo":"","descrizione":"","esercizi":[{"nome":"","serie":3,"ripetizioni":"10-12","recupero_secondi":90,"note_tecniche":""}]},{"tipo":"corsa","titolo":"","descrizione":"","esercizi":[{"nome":"","serie":1,"ripetizioni":"30 min","recupero_secondi":0,"note_tecniche":""}]}]}}`,
           messages: [{
             role: "user",
-            content: `Piano attuale:\n${JSON.stringify(piano, null, 2)}\n\nCommenti e modifiche richieste:\n${pianoComment}\n\nAggiorna il piano rispettando esattamente i commenti. Rispondi SOLO con JSON puro.`
+            content: `Fasi attuali: ${JSON.stringify(piano.fasi)}\n\nModifica richiesta: ${pianoComment}\n\nRispondi SOLO con JSON puro.`
           }]
         })
       });
@@ -452,10 +440,9 @@ Formato esatto richiesto:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: `Valori nutrizionali per: "${query}". Rispondi SOLO con JSON array senza nulla prima o dopo:
-[{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
-Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
+          max_tokens: 300,
+          messages: [{ role: "user", content: `Valori nutrizionali esatti per: "${query}". Se è un prodotto specifico con etichetta (es. "Fage 0% 150g"), dai UN solo risultato preciso. Se è un alimento generico senza quantità (es. "pollo"), dai 2 varianti con porzioni tipiche. Rispondi SOLO con JSON array:
+[{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
       });
       const result = await res.json();
@@ -467,6 +454,44 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
     setFoodLoading(false);
   }
 
+  async function searchFoodByPhoto(file, meal) {
+    if (!file) return;
+    setFoodLoading(true);
+    setFoodResults([]);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target.result.split(",")[1];
+        const mediaType = file.type || "image/jpeg";
+        const res = await fetch("/api/claude", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1000,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+                { type: "text", text: `Analizza questa immagine. Se è un alimento o un piatto, riconosci cosa è e stima i valori nutrizionali. Se è un'etichetta nutrizionale, leggi i valori esatti. Rispondi SOLO con questo JSON array senza nulla prima o dopo:
+[{"nome":"nome preciso con quantità stimata","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
+Dai 2-3 varianti realistiche (es. porzione piccola, media, grande). Valori riferiti alla quantità stimata visivamente.` }
+              ]
+            }]
+          })
+        });
+        const result = await res.json();
+        const text = result.content?.map(c => c.text || "").join("") || "";
+        setFoodResults(JSON.parse(text.replace(/```json|```/g, "").trim()));
+        setFoodLoading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (e) {
+      setFoodResults([{ nome: "Errore nel riconoscimento", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
+      setFoodLoading(false);
+    }
+  }
+
   function addFood(meal, food) {
     setMeals(p => ({ ...p, [meal]: [...p[meal], { ...food, id: Date.now() }] }));
     setAddingMeal(null); setFoodSearch(""); setFoodResults([]);
@@ -474,975 +499,677 @@ Dai 2-3 varianti. Valori riferiti alla quantità specificata.` }]
   function removeFood(meal, id) { setMeals(p => ({ ...p, [meal]: p[meal].filter(f => f.id !== id) })); }
   function updateFood(meal, id, k, v) { setMeals(p => ({ ...p, [meal]: p[meal].map(f => f.id === id ? { ...f, [k]: parseFloat(v) || 0 } : f) })); }
 
-  function startMed() {
-    setMedRunning(true); setMedSeconds(selectedMedTime * 60);
-    medRef.current = setInterval(() => {
-      setMedSeconds(s => { if (s <= 1) { clearInterval(medRef.current); setMedRunning(false); return 0; } return s - 1; });
-    }, 1000);
+;
+
+  const T = {
+    title1: { fontSize: 28, fontWeight: 700, color: C.text, letterSpacing: -0.5 },
+    title2: { fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: -0.3 },
+    title3: { fontSize: 18, fontWeight: 600, color: C.text },
+    headline: { fontSize: 17, fontWeight: 600, color: C.text },
+    body: { fontSize: 17, fontWeight: 400, color: C.text },
+    callout: { fontSize: 16, fontWeight: 400, color: C.text },
+    subhead: { fontSize: 15, fontWeight: 400, color: C.text },
+    footnote: { fontSize: 13, fontWeight: 400, color: C.textSecondary },
+    caption: { fontSize: 12, fontWeight: 400, color: C.textTertiary },
+    label: { fontSize: 11, fontWeight: 500, color: C.textTertiary, textTransform: "uppercase", letterSpacing: 0.8 },
+    num: { fontSize: 34, fontWeight: 700, color: C.text, letterSpacing: -1 },
+    numLarge: { fontSize: 52, fontWeight: 700, color: C.text, letterSpacing: -2 },
+  };
+
+  const S = {
+    card: { background: C.card, borderRadius: 16, marginBottom: 12, overflow: "hidden" },
+    cardPad: { padding: "16px 16px" },
+    page: { padding: "0 0 110px 0", minHeight: "100vh", background: C.bg },
+    row: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+    btn: (color = C.green) => ({
+      background: color, color: "white", border: "none", borderRadius: 12,
+      padding: "14px 20px", fontSize: 17, fontWeight: 600, cursor: "pointer",
+      width: "100%", display: "block", textAlign: "center", minHeight: 50,
+    }),
+    btnOutline: (color = C.green) => ({
+      background: "transparent", color, border: `1.5px solid ${color}`, borderRadius: 12,
+      padding: "13px 20px", fontSize: 17, fontWeight: 500, cursor: "pointer",
+      width: "100%", display: "block", textAlign: "center", minHeight: 50,
+    }),
+    btnSmall: (color = C.green) => ({
+      background: color + "18", color, border: `1px solid ${color}30`, borderRadius: 10,
+      padding: "8px 14px", fontSize: 15, fontWeight: 600, cursor: "pointer",
+      minHeight: 36, display: "inline-flex", alignItems: "center",
+    }),
+    input: {
+      width: "100%", padding: "14px 16px", border: `1.5px solid ${C.border}`,
+      borderRadius: 12, fontSize: 17, color: C.text, background: C.card,
+      outline: "none", boxSizing: "border-box", minHeight: 50,
+    },
+    divider: { height: 1, background: C.border, margin: "0 16px" },
+    tag: (color = C.green) => ({
+      background: color + "18", color, borderRadius: 20, padding: "4px 10px",
+      fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center",
+    }),
+  };
+
+  const MEALICONS = { Colazione: "☀️", Spuntino: "🍎", Pranzo: "🍽️", Merenda: "🥜", Cena: "🌙" };
+
+  function MacroBar({ eaten, target, color }) {
+    const pct = Math.min(100, target > 0 ? (eaten / target) * 100 : 0);
+    return (
+      <div style={{ height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ width: pct + "%", height: "100%", background: color, borderRadius: 3, transition: "width 0.3s" }} />
+      </div>
+    );
   }
-  function stopMed() { clearInterval(medRef.current); setMedRunning(false); setMedSeconds(0); }
 
-  const card = (extra = {}) => ({ background: "white", borderRadius: 12, border: "0.5px solid #e0e0d8", padding: 14, marginBottom: 12, ...extra });
-  const selectedDayDate = weekDays[selectedDay];
-  const selectedDaySchedule = getDaySchedule(selectedDayDate);
+  function Section({ title, action, actionLabel, children }) {
+    return (
+      <div style={{ marginBottom: 4 }}>
+        {title && (
+          <div style={{ ...S.row, padding: "8px 16px 4px" }}>
+            <span style={T.label}>{title}</span>
+            {action && <button onClick={action} style={{ ...T.footnote, background: "none", border: "none", color: C.green, fontWeight: 600, cursor: "pointer", padding: 0 }}>{actionLabel}</button>}
+          </div>
+        )}
+        <div style={S.card}>{children}</div>
+      </div>
+    );
+  }
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#f5f5f0", ...f }}>
-      <div style={{ maxWidth: 420, margin: "0 auto", paddingBottom: 80 }}>
+  function ListRow({ icon, label, value, chevron, onPress, danger, last }) {
+    return (
+      <div onClick={onPress} style={{ ...S.cardPad, ...S.row, borderBottom: last ? "none" : `1px solid ${C.border}`, cursor: onPress ? "pointer" : "default", gap: 12 }}>
+        {icon && <span style={{ fontSize: 22, flexShrink: 0 }}>{icon}</span>}
+        <div style={{ flex: 1 }}>
+          <div style={{ ...T.body, color: danger ? C.red : C.text }}>{label}</div>
+          {value && <div style={T.footnote}>{value}</div>}
+        </div>
+        {chevron && <span style={{ color: C.textTertiary, fontSize: 18 }}>›</span>}
+      </div>
+    );
+  }
 
-        {/* ══════════════════ PROFILO ══════════════════ */}
-        {activeTab === "profilo" && (
-          <div style={{ padding: "20px 16px 16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 400, color: "#1a1a1a" }}>Il mio profilo</h1>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 500, color: "#0F6E56" }}>FL</div>
+  // ─── PROFILO TAB ─────────────────────────────────────────────────────────────
+  function TabProfilo() {
+    const { weekNum, phase } = getPhaseAndWeek();
+    return (
+      <div style={S.page}>
+        {/* Header */}
+        <div style={{ background: C.card, padding: "56px 20px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ ...S.row, marginBottom: 4 }}>
+            <div>
+              <div style={T.title1}>Ciao, Flavio 👋</div>
+              <div style={{ ...T.subhead, color: C.textSecondary }}>Settimana {weekNum} · {phase?.nome || "In corso"}</div>
             </div>
+            <div style={{ width: 50, height: 50, borderRadius: 25, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 20, fontWeight: 700 }}>FL</div>
+          </div>
+        </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
-              {[
-                { label: "Età", value: "35 anni" },
-                { label: "Peso", value: weightHistory[weightHistory.length-1].value + " kg" },
-                { label: "BMI", value: "23.7" },
-                { label: "TDEE", value: "~2003", tooltip: "Fabbisogno calorico giornaliero stimato (sedentario)" },
-              ].map(m => (
-                <div key={m.label} title={m.tooltip || ""} style={{ background: "white", borderRadius: 12, padding: "8px 6px", border: "0.5px solid #e0e0d8" }}>
-                  <div style={{ fontSize: 12, color: "#999" }}>{m.label}{m.tooltip ? " ℹ" : ""}</div>
-                  <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>{m.value}</div>
-                </div>
-              ))}
-            </div>
+        <div style={{ padding: "16px 16px 0" }}>
 
-            {/* Grafico peso */}
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 8 }}>Andamento peso</div>
-              {weightHistory.length >= 2 ? (() => {
-                const W = 290, H = 70, PAD = 24;
-                const vals = weightHistory.map(w => w.value);
-                const minV = Math.min(...vals) - 0.5, maxV = Math.max(...vals) + 0.5;
-                const range = maxV - minV;
-                const pts = weightHistory.map((w, i) => ({
-                  x: PAD + (i / (weightHistory.length - 1)) * (W - PAD * 2),
-                  y: H - PAD - ((w.value - minV) / range) * (H - PAD * 2), ...w
-                }));
-                return (
-                  <svg width="100%" viewBox={`0 0 ${W} ${H+20}`} style={{ overflow: "visible" }}>
-                    <polyline points={pts.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#1D9E75" strokeWidth="1.5" />
-                    {pts.map((p, i) => (
-                      <g key={i}>
-                        <circle cx={p.x} cy={p.y} r={3} fill="#1D9E75" />
-                        <text x={p.x} y={p.y - 7} fontSize="8" fill="#1D9E75" textAnchor="middle">{p.value}</text>
-                        <text x={p.x} y={H+14} fontSize="7" fill="#bbb" textAnchor="middle">{p.date.split("/").slice(0,2).join("/")}</text>
-                      </g>
-                    ))}
-                  </svg>
-                );
-              })() : (
-                <div style={{ fontSize: 17, color: "#ccc", textAlign: "center", padding: "13px 0" }}>Aggiungi almeno 2 pesate per vedere il grafico</div>
-              )}
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <input type="number" value={newWeight} onChange={e => setNewWeight(e.target.value)} placeholder="Nuovo peso (kg)" style={{ flex: 1, padding: "12px 14px", border: "0.5px solid #e0e0d8", borderRadius: 12, fontSize: 15, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} />
-                <button onClick={addWeight} style={{ padding: "6px 14px", background: "#1D9E75", border: "none", borderRadius: 12, color: "white", fontSize: 15, cursor: "pointer", ...f }}>+ Aggiungi</button>
-              </div>
-            </div>
-
-            {/* Composizione corporea */}
-            <div style={card()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontSize: 17, color: "#999" }}>Composizione corporea</div>
-                <button onClick={() => setEditingBody(!editingBody)} style={{ fontSize: 17, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", ...f }}>{editingBody ? "Salva" : "Modifica"}</button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-                {[{ label: "Massa grassa", key: "fat", unit: "%" }, { label: "Massa magra", key: "lean", unit: "kg" }, { label: "Acqua corp.", key: "water", unit: "%" }].map(({ label, key, unit }) => (
-                  <div key={key} style={{ background: "#f9f9f6", borderRadius: 12, padding: "8px 6px", textAlign: "center" }}>
-                    <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>{label}</div>
-                    {editingBody
-                      ? <input type="number" value={bodyData[key]} onChange={e => setBodyData(p => ({ ...p, [key]: e.target.value }))} placeholder="—" style={{ width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 17, fontWeight: 500, color: "#1a1a1a", outline: "none", ...f }} />
-                      : <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>{bodyData[key] ? bodyData[key] + unit : "—"}</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Blocchi drag */}
-            <div style={{ fontSize: 17, color: "#bbb", marginBottom: 8 }}>Trascina per riordinare</div>
-            {profileBlocks.map((block, idx) => (
-              <div key={block.id} draggable
-                onDragStart={() => setDragIdx(idx)}
-                onDragOver={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== idx) { const nb = [...profileBlocks]; const [m] = nb.splice(dragIdx, 1); nb.splice(idx, 0, m); setProfileBlocks(nb); setDragIdx(idx); } }}
-                onDragEnd={() => setDragIdx(null)}
-                onClick={() => { if (block.id === "piano") setPianoOpen(p => !p); }}
-                style={{ background: "white", border: "0.5px solid #e0e0d8", borderRadius: 12, padding: "10px 12px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, cursor: block.id === "piano" ? "pointer" : "grab", opacity: dragIdx === idx ? 0.5 : 1 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-                  {[0,1,2].map(i => <div key={i} style={{ width: 14, height: 2, background: "#ddd", borderRadius: 2 }} />)}
-                </div>
-                <div style={{ width: 28, height: 28, borderRadius: 12, background: block.color, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>{block.title}</div>
-                  <div style={{ fontSize: 17, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getBlockValue(block.id)}</div>
-                </div>
-                {block.id === "piano" && <span style={{ fontSize: 17, color: "#1D9E75", flexShrink: 0 }}>{pianoOpen ? "Chiudi" : "Apri →"}</span>}
+          {/* Stats rapide */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            {[
+              { label: "Peso", value: weightHistory.length ? weightHistory[weightHistory.length-1].value + " kg" : "— kg", icon: "⚖️", color: C.blue },
+              { label: "BMI", value: weightHistory.length ? (weightHistory[weightHistory.length-1].value / (1.78*1.78)).toFixed(1) : "—", icon: "📊", color: C.orange },
+              { label: "TDEE", value: "~2003 kcal", icon: "🔥", color: C.red },
+              { label: "Fase", value: phase?.nome?.split(" ")[0] || "—", icon: "📅", color: C.green },
+            ].map(item => (
+              <div key={item.label} style={{ ...S.card, ...S.cardPad, marginBottom: 0 }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon}</div>
+                <div style={{ ...T.headline, color: item.color }}>{item.value}</div>
+                <div style={T.caption}>{item.label}</div>
               </div>
             ))}
-
-            {/* Piano espanso */}
-            {pianoOpen && (
-              <div style={card({ marginTop: -4 })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>Il mio piano</div>
-                    <div style={{ fontSize: 16, color: "#999", marginTop: 2 }}>{piano.durata_settimane} sett. · Solo allenamento</div>
-                  </div>
-
-                </div>
-                {piano?.fasi?.map((fase, fi) => (
-                  <div key={fi} style={{ background: fi === 0 ? "#f0faf5" : "#f9f9f6", borderRadius: 10, border: `0.5px solid ${fi === 0 ? "#b8e8d0" : "#e8e8e0"}`, padding: 12, marginBottom: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>Fase {fase.numero} — {fase.nome}</span>
-                      {fi === 0 && <span style={{ fontSize: 16, padding: "2px 8px", borderRadius: 5, background: "#E1F5EE", color: "#0F6E56" }}>In corso</span>}
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 }}>
-                      {[["Settimane","settimane"],["Allenamenti/sett","allenamenti_settimana"]].map(([label, key]) => (
-                        <div key={key}>
-                          <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-                          <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>{fase[key]}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: 16, color: "#888", fontStyle: "italic", lineHeight: 1.5 }}>{fase.note}</div>
-                  </div>
-                ))}
-                {/* Box modifica piano */}
-                <div style={{ paddingTop: 4 }}>
-                  <div style={{ fontSize: 17, color: "#999", marginBottom: 6 }}>Vuoi modificare il piano?</div>
-                  <textarea
-                    value={pianoComment}
-                    onChange={e => setPianoComment(e.target.value)}
-                    placeholder="Es. voglio passare a 3 sessioni, ho smesso la corsa e voglio fare nuoto, il mio gomito sta meglio..."
-                    rows={3}
-                    style={{ width: "100%", padding: 8, border: "0.5px solid #e0e0d8", borderRadius: 12, background: "#f9f9f6", color: "#1a1a1a", fontSize: 17, resize: "none", outline: "none", boxSizing: "border-box", ...f }}
-                  />
-                  <button
-                    onClick={updatePianoFromComment}
-                    disabled={pianoUpdateLoading || !pianoComment.trim()}
-                    style={{ width: "100%", marginTop: 8, padding: 10, background: pianoUpdateLoading || !pianoComment.trim() ? "#f0f0e8" : "#1a1a1a", border: "none", borderRadius: 12, color: pianoUpdateLoading || !pianoComment.trim() ? "#999" : "white", fontSize: 15, cursor: pianoUpdateLoading || !pianoComment.trim() ? "default" : "pointer", ...f }}>
-                    {pianoUpdateLoading ? "Aggiornamento in corso..." : "⟳ Aggiorna piano"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        )}
 
-        {/* ══════════════════ DIETA ══════════════════ */}
-        {activeTab === "dieta" && (
-          <div style={{ padding: "20px 16px 16px" }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 400, color: "#1a1a1a" }}>Alimentazione</h1>
-                <span style={{ fontSize: 15, color: isToday ? "#1D9E75" : "#999", fontWeight: isToday ? 500 : 400 }}>
-                  {new Date(selectedMealDate + 'T12:00:00').toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
-                </span>
-              </div>
-              {/* Selettore data — scorri tra i giorni */}
-              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-                {Array.from({ length: 14 }, (_, i) => {
-                  const d = new Date(); d.setDate(d.getDate() - (13 - i));
-                  const dk = d.toISOString().split('T')[0];
-                  const hasMeals = (() => { try { const s = localStorage.getItem('meals_' + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
-                  const isSelected = dk === selectedMealDate;
-                  const isTodayDay = dk === new Date().toISOString().split('T')[0];
-                  return (
-                    <button key={dk} onClick={() => loadMealsForDate(dk)}
-                      style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 14px", borderRadius: 10, border: `1px solid ${isSelected ? "#1D9E75" : "#e0e0d8"}`, background: isSelected ? "#1D9E75" : hasMeals ? "#f0faf5" : "white", cursor: "pointer", minWidth: 44, ...f }}>
-                      <span style={{ fontSize: 12, color: isSelected ? "white" : "#999", textTransform: "uppercase" }}>
-                        {d.toLocaleDateString("it-IT", { weekday: "short" })}
-                      </span>
-                      <span style={{ fontSize: 17, fontWeight: 600, color: isSelected ? "white" : isTodayDay ? "#1D9E75" : "#1a1a1a" }}>
-                        {d.getDate()}
-                      </span>
-                      {hasMeals && !isSelected && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#1D9E75", marginTop: 2 }} />}
-                    </button>
-                  );
-                })}
+          {/* Grafico peso */}
+          <Section title="Andamento peso" actionLabel="+ Aggiungi" action={() => {}}>
+            <div style={S.cardPad}>
+              {weightHistory.length < 2 ? (
+                <div style={{ ...T.footnote, textAlign: "center", padding: "20px 0" }}>Aggiungi almeno 2 pesate per vedere il grafico</div>
+              ) : (
+                <svg viewBox={`0 0 ${(weightHistory.length-1)*60+40} 80`} style={{ width: "100%", height: 80 }}>
+                  {weightHistory.map((p, i) => {
+                    const vals = weightHistory.map(x => x.value);
+                    const mn = Math.min(...vals)-1, mx = Math.max(...vals)+1;
+                    const x = i * 60 + 20;
+                    const y = 70 - ((p.value-mn)/(mx-mn)) * 60;
+                    return (
+                      <g key={i}>
+                        {i > 0 && (() => {
+                          const prev = weightHistory[i-1];
+                          const px = (i-1)*60+20;
+                          const py = 70 - ((prev.value-mn)/(mx-mn))*60;
+                          return <line x1={px} y1={py} x2={x} y2={y} stroke={C.green} strokeWidth="2" />;
+                        })()}
+                        <circle cx={x} cy={y} r="4" fill={C.green} />
+                        <text x={x} y={y-8} textAnchor="middle" fontSize="10" fill={C.textSecondary}>{p.value}</text>
+                        <text x={x} y={76} textAnchor="middle" fontSize="9" fill={C.textTertiary}>{p.date?.split("/").slice(0,2).join("/")}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <input type="number" value={newWeight} onChange={e => setNewWeight(e.target.value)} placeholder="Nuovo peso (kg)" style={{ ...S.input, flex: 1 }} />
+                <button onClick={addWeight} style={{ ...S.btn(C.green), width: "auto", padding: "0 20px" }}>+</button>
               </div>
             </div>
+          </Section>
 
-            {/* Card dieta caricata / upload */}
-            <div style={{ ...card(), background: dietaCaricata ? "#f0faf5" : "white", border: `0.5px solid ${dietaCaricata ? "#b8e8d0" : "#e0e0d8"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: dietaCaricata ? 12 : 0 }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>
-                    {dietaCaricata ? `✓ ${dieta.fonte}` : "Nessuna dieta caricata"}
+          {/* Composizione corporea */}
+          <Section title="Composizione corporea">
+            <div style={S.cardPad}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[["Massa grassa", "fat", "%"], ["Massa magra", "lean", "kg"], ["Acqua corp.", "water", "%"]].map(([lbl, k, unit]) => (
+                  <div key={k} style={{ textAlign: "center" }}>
+                    <div style={{ ...T.title2, color: bodyData[k] ? C.text : C.textTertiary }}>
+                      {bodyData[k] ? bodyData[k] + unit : "—"}
+                    </div>
+                    <div style={T.caption}>{lbl}</div>
                   </div>
-                  {dietaCaricata && <div style={{ fontSize: 16, color: "#0F6E56", marginTop: 2 }}>Caricata il {dieta.data_caricamento}</div>}
-                </div>
-                <div>
-                  <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => handleDietaUpload(e.target.files[0])} />
-                  <button onClick={() => fileInputRef.current?.click()} style={{ fontSize: 17, color: "#1D9E75", border: "1px solid #1D9E75", borderRadius: 10, padding: "10px 20px", background: "transparent", cursor: "pointer", minHeight: 44, ...f }}>
-                    {dietaCaricata ? "Aggiorna PDF" : "Carica PDF"}
-                  </button>
-                </div>
+                ))}
               </div>
-
-              {uploadingDieta && (
-                <div style={{ fontSize: 15, color: "#1D9E75", marginBottom: 8 }}>{uploadProgress}</div>
+              {editingBody && (
+                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                  {[["Grassa%","fat"],["Magra kg","lean"],["Acqua%","water"]].map(([pl, k]) => (
+                    <input key={k} type="number" placeholder={pl} value={bodyData[k]} onChange={e => setBodyData(p => ({...p, [k]: e.target.value}))} style={{ ...S.input, flex: 1, padding: "10px 8px", fontSize: 15 }} />
+                  ))}
+                </div>
               )}
+              <button onClick={() => setEditingBody(e => !e)} style={{ ...S.btnOutline(C.green), marginTop: 12 }}>
+                {editingBody ? "Chiudi" : "Modifica"}
+              </button>
+            </div>
+          </Section>
 
-              {dietaCaricata && (
+          {/* Il mio piano */}
+          <Section title="Piano allenamento">
+            <div style={S.cardPad}>
+              <div style={{ ...S.row, marginBottom: 12 }}>
+                <div>
+                  <div style={T.headline}>{piano.obiettivo}</div>
+                  <div style={{ ...T.footnote, marginTop: 2 }}>{piano.durata_settimane} settimane · Solo allenamento</div>
+                </div>
+                <div style={{ ...S.tag(C.green) }}>In corso</div>
+              </div>
+              {!pianoOpen ? (
+                <button onClick={() => setPianoOpen(true)} style={S.btn(C.green)}>Vedi piano completo</button>
+              ) : (
                 <>
-                  <div style={{ fontSize: 17, color: "#666", marginBottom: 10, fontStyle: "italic" }}>{dieta.note}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                    {[["Media kcal", dieta.media_settimanale?.kcal], ["Proteine", dieta.media_settimanale?.proteine_g + "g"], ["Carbo", dieta.media_settimanale?.carboidrati_g + "g"], ["Grassi", dieta.media_settimanale?.grassi_g + "g"]].map(([l, v]) => (
-                      <div key={l} style={{ background: "white", borderRadius: 12, padding: "6px", textAlign: "center" }}>
-                        <div style={{ fontSize: 12, color: "#999" }}>{l}</div>
-                        <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>{v}</div>
+                  {piano.fasi?.map((fase, fi) => (
+                    <div key={fi} style={{ background: fi === 0 ? C.greenLight : C.bg, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                      <div style={{ ...S.row, marginBottom: 6 }}>
+                        <div style={T.headline}>Fase {fase.numero} — {fase.nome}</div>
+                        {fi === 0 && <div style={S.tag(C.green)}>In corso</div>}
                       </div>
-                    ))}
-                  </div>
-                  {editingPdfUrl ? (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 17, color: "#999", marginBottom: 4 }}>Link Google Drive del PDF</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <input value={pdfUrlInput} onChange={e => setPdfUrlInput(e.target.value)}
-                          placeholder="https://drive.google.com/..."
-                          style={{ flex: 1, padding: "12px 14px", border: "0.5px solid #1D9E75", borderRadius: 10, fontSize: 17, color: "#1a1a1a", outline: "none", ...f }} />
-                        <button onClick={() => { setDieta(p => ({ ...p, pdf_url: pdfUrlInput })); setEditingPdfUrl(false); }}
-                          style={{ padding: "6px 12px", background: "#1D9E75", border: "none", borderRadius: 10, color: "white", fontSize: 17, cursor: "pointer", ...f }}>Salva</button>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <div><div style={T.label}>Settimane</div><div style={T.body}>{fase.settimane}</div></div>
+                        <div><div style={T.label}>Sessioni/sett</div><div style={T.body}>{fase.allenamenti_settimana}</div></div>
                       </div>
+                      <div style={{ ...T.footnote, fontStyle: "italic" }}>{fase.note}</div>
                     </div>
-                  ) : dieta?.pdf_url ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
-                      <a href={dieta.pdf_url} target="_blank" rel="noopener noreferrer"
-                        style={{ flex: 1, display: "block", padding: "13px 0", border: "0.5px solid #1D9E75", borderRadius: 12, color: "#1D9E75", fontSize: 15, textAlign: "center", textDecoration: "none", ...f }}>
-                        Apri la dieta completa →
-                      </a>
-                      <button onClick={() => { setPdfUrlInput(dieta.pdf_url || ""); setEditingPdfUrl(true); }}
-                        style={{ fontSize: 16, color: "#999", border: "0.5px solid #ddd", borderRadius: 10, padding: "4px 8px", background: "transparent", cursor: "pointer", ...f }}>modifica</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setPdfUrlInput(""); setEditingPdfUrl(true); }}
-                      style={{ width: "100%", marginTop: 10, padding: "13px 0", border: "0.5px dashed #ccc", borderRadius: 12, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", ...f }}>
-                      + aggiungi link PDF dieta
+                  ))}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ ...T.subhead, color: C.textSecondary, marginBottom: 8 }}>Vuoi modificare il piano?</div>
+                    <textarea value={pianoComment} onChange={e => setPianoComment(e.target.value)} placeholder="Es. voglio passare a 3 sessioni, ho smesso la corsa..." rows={3}
+                      style={{ ...S.input, resize: "none", marginBottom: 10 }} />
+                    <button onClick={updatePianoFromComment} disabled={pianoUpdateLoading || !pianoComment.trim()}
+                      style={S.btn(pianoUpdateLoading || !pianoComment.trim() ? C.textTertiary : C.text)}>
+                      {pianoUpdateLoading ? "Aggiornamento..." : "Aggiorna piano"}
                     </button>
-                  )}
+                  </div>
+                  <button onClick={() => setPianoOpen(false)} style={{ ...S.btnOutline(C.textSecondary), marginTop: 8 }}>Chiudi</button>
                 </>
               )}
-              {!dietaCaricata && (
-                <div style={{ fontSize: 15, color: "#999", marginTop: 8 }}>
-                  Carica il PDF della tua nutrizionista — Claude estrarrà automaticamente calorie e macro per ogni giorno.
-                </div>
-              )}
             </div>
+          </Section>
 
-            {/* Tracker giornaliero */}
-            <div style={card()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14 }}>
-                <div>
-                  <div style={{ fontSize: 17, color: "#999" }}>Target oggi</div>
-                  <div style={{ fontSize: 22, fontWeight: 500, color: "#1a1a1a" }}>{tKcal} <span style={{ fontSize: 15, color: "#999", fontWeight: 400 }}>kcal</span></div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 17, color: "#999" }}>Assunte</div>
-                  <div style={{ fontSize: 18, fontWeight: 500, color: Math.round(totals.calorie) > tKcal ? "#E24B4A" : "#1D9E75" }}>{Math.round(totals.calorie)} <span style={{ fontSize: 17, color: "#999", fontWeight: 400 }}>kcal</span></div>
-                </div>
-              </div>
-              {[["Proteine", totals.proteine, tP, "#1D9E75"], ["Carboidrati", totals.carboidrati, tC, "#378ADD"], ["Grassi", totals.grassi, tF, "#EF9F27"]].map(([l, v, t, c]) => (
-                <div key={l} style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, marginBottom: 3 }}>
-                    <span style={{ color: "#999" }}>{l}</span>
-                    <span style={{ fontWeight: 500, color: "#1a1a1a" }}>{Math.round(v)}g <span style={{ color: c }}>/ {t}g</span></span>
+          {/* Dati dieta */}
+          <Section title="Dieta">
+            <ListRow icon="👩‍⚕️" label={dieta.fonte || "Nessuna dieta"} value={dietaCaricata ? `${dieta.media_settimanale?.kcal} kcal/die · ${dieta.note?.substring(0,40)}...` : "Carica un PDF"} chevron last />
+          </Section>
+
+          {/* Salute */}
+          <Section title="Salute">
+            <ListRow icon="⚕️" label="Epitrocleite gomito destro" value="Trattata · al momento asintomatica" last />
+          </Section>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ─── DIETA TAB ───────────────────────────────────────────────────────────────
+  function TabDieta() {
+    const pctKcal = Math.min(100, tKcal > 0 ? (totals.calorie/tKcal)*100 : 0);
+    return (
+      <div style={S.page}>
+        {/* Header fisso */}
+        <div style={{ background: C.card, padding: "56px 20px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ ...S.row, marginBottom: 16 }}>
+            <div style={T.title1}>Alimentazione</div>
+            <div style={{ ...T.subhead, color: isToday ? C.green : C.textSecondary, fontWeight: 600 }}>
+              {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
+            </div>
+          </div>
+          {/* Calendario 14 giorni */}
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+            {Array.from({ length: 14 }, (_, i) => {
+              const d = new Date(); d.setDate(d.getDate() - (13 - i));
+              const dk = d.toISOString().split("T")[0];
+              const hasMeals = (() => { try { const s = localStorage.getItem("meals_" + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
+              const isSel = dk === selectedMealDate;
+              const isT = dk === new Date().toISOString().split("T")[0];
+              return (
+                <button key={dk} onClick={() => loadMealsForDate(dk)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 10px", borderRadius: 12, border: `1.5px solid ${isSel ? C.green : C.border}`, background: isSel ? C.green : hasMeals ? C.greenLight : C.bg, cursor: "pointer", minWidth: 48 }}>
+                  <span style={{ fontSize: 11, color: isSel ? "white" : C.textTertiary, fontWeight: 600, textTransform: "uppercase" }}>{d.toLocaleDateString("it-IT", { weekday: "short" })}</span>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: isSel ? "white" : isT ? C.green : C.text, lineHeight: 1.2 }}>{d.getDate()}</span>
+                  {hasMeals && !isSel && <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, marginTop: 2 }} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding: "16px 16px 0" }}>
+
+          {/* Ring calorie */}
+          <div style={{ ...S.card, ...S.cardPad, display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <svg width={100} height={100}>
+                <circle cx={50} cy={50} r={42} fill="none" stroke={C.border} strokeWidth={10} />
+                <circle cx={50} cy={50} r={42} fill="none" stroke={C.green} strokeWidth={10}
+                  strokeDasharray={`${pctKcal * 2.64} 264`} strokeDashoffset={66} strokeLinecap="round" transform="rotate(-90 50 50)" />
+                <text x={50} y={46} textAnchor="middle" fontSize={20} fontWeight={700} fill={C.text}>{totals.calorie}</text>
+                <text x={50} y={62} textAnchor="middle" fontSize={11} fill={C.textSecondary}>/ {tKcal}</text>
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...T.headline, marginBottom: 2 }}>Calorie oggi</div>
+              <div style={{ ...T.footnote, marginBottom: 12 }}>{tKcal - totals.calorie > 0 ? `${tKcal - totals.calorie} kcal rimanenti` : "Obiettivo raggiunto!"}</div>
+              {[["Proteine", totals.proteine, tP, C.blue], ["Carboidrati", totals.carboidrati, tC, C.orange], ["Grassi", totals.grassi, tF, C.red]].map(([lbl, eaten, target, color]) => (
+                <div key={lbl} style={{ marginBottom: 8 }}>
+                  <div style={{ ...S.row, marginBottom: 3 }}>
+                    <span style={T.footnote}>{lbl}</span>
+                    <span style={{ ...T.footnote, fontWeight: 600, color }}>{Math.round(eaten)}g / {target}g</span>
                   </div>
-                  <div style={{ height: 4, background: "#f0f0e8", borderRadius: 2 }}><div style={{ height: 4, width: `${Math.min((v/t)*100, 100)}%`, background: c, borderRadius: 2, transition: "width 0.3s" }} /></div>
+                  <MacroBar eaten={eaten} target={target} color={color} />
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* Pasti tracker */}
-            {!isToday && <div style={{ background: "#f9f9f6", borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 15, color: "#999", textAlign: "center" }}>Storico del {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "long" })} — sola lettura</div>}
-            {["Colazione","Spuntino","Pranzo","Merenda","Cena"].map(meal => {
-              const mFoods = meals[meal];
-              const mKcal = Math.round(mFoods.reduce((a, f) => a + (f.calorie || 0), 0));
-              return (
-                <div key={meal} style={card()}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mFoods.length ? 10 : 0 }}>
-                    <span style={{ fontSize: 16, fontWeight: 500, color: "#1a1a1a" }}>{meal}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 17, color: "#999" }}>{mKcal} kcal</span>
-                      <button onClick={() => setAddingMeal(meal)} style={{ fontSize: 17, color: "#1D9E75", border: "0.5px solid #1D9E75", borderRadius: 10, padding: "3px 8px", background: "transparent", cursor: "pointer", ...f }}>+ aggiungi</button>
+          {/* Dieta card */}
+          {dietaCaricata && (
+            <Section title="La tua dieta">
+              <div style={S.cardPad}>
+                <div style={{ ...S.row, marginBottom: 8 }}>
+                  <div>
+                    <div style={T.headline}>✓ {dieta.fonte}</div>
+                    <div style={T.footnote}>Caricata il {dieta.data_caricamento}</div>
+                  </div>
+                  <button onClick={() => fileInputRef.current?.click()} style={S.btnSmall(C.green)}>Aggiorna</button>
+                </div>
+                <div style={{ ...T.footnote, fontStyle: "italic" }}>{dieta.note}</div>
+                {dieta.pdf_url && <a href={dieta.pdf_url} target="_blank" rel="noreferrer" style={{ ...T.footnote, color: C.green, display: "block", marginTop: 8 }}>Apri PDF ›</a>}
+                <input type="file" ref={fileInputRef} accept=".pdf" style={{ display: "none" }} onChange={e => handleDietaUpload(e.target.files?.[0])} />
+              </div>
+            </Section>
+          )}
+
+          {/* Banner sola lettura */}
+          {!isToday && (
+            <div style={{ background: C.orangeLight, borderRadius: 12, padding: 14, marginBottom: 12, display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 20 }}>📋</span>
+              <div>
+                <div style={{ ...T.subhead, fontWeight: 600 }}>Storico</div>
+                <div style={T.footnote}>{new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "long" })} — sola lettura</div>
+              </div>
+            </div>
+          )}
+
+          {/* Pasti */}
+          {["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena"].map(meal => {
+            const items = meals[meal] || [];
+            const mealKcal = items.reduce((a, f) => a + (f.calorie || 0), 0);
+            return (
+              <div key={meal} style={{ ...S.card }}>
+                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }} onClick={() => isToday && setAddingMeal(addingMeal === meal ? null : meal)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 28 }}>{MEALICONS[meal]}</div>
+                    <div>
+                      <div style={T.headline}>{meal}</div>
+                      <div style={T.footnote}>{mealKcal > 0 ? `${mealKcal} kcal` : "Nessun alimento"}</div>
                     </div>
                   </div>
-                  {mFoods.map(food => (
-                    <div key={food.id} style={{ borderLeft: "2px solid #E1F5EE", paddingLeft: 8, marginBottom: 6 }}>
-                      {editingFood === food.id ? (
-                        <div>
-                          <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a", marginBottom: 4 }}>{food.nome}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
-                            {[["kcal","calorie"],["P g","proteine_g"],["C g","carboidrati_g"],["F g","grassi_g"]].map(([l, k]) => (
-                              <div key={k}><div style={{ fontSize: 12, color: "#999" }}>{l}</div><input type="number" value={food[k]} onChange={e => updateFood(meal, food.id, k, e.target.value)} style={{ width: "100%", border: "none", borderBottom: "1px solid #1D9E75", background: "transparent", fontSize: 15, color: "#1a1a1a", outline: "none", ...f }} /></div>
-                            ))}
-                          </div>
-                          <button onClick={() => setEditingFood(null)} style={{ fontSize: 16, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", marginTop: 4, ...f }}>✓ Salva</button>
+                  {isToday && <span style={{ ...T.title2, color: C.green }}>+</span>}
+                </div>
+                {items.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${C.border}` }}>
+                    {items.map(food => (
+                      <div key={food.id} style={{ ...S.cardPad, borderBottom: `1px solid ${C.border}`, ...S.row }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={T.body}>{food.nome}</div>
+                          <div style={T.footnote}>{food.calorie} kcal · P {food.proteine_g}g · C {food.carboidrati_g}g · G {food.grassi_g}g</div>
                         </div>
-                      ) : (
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div>
-                            <div style={{ fontSize: 17, color: "#1a1a1a" }}>{food.nome}</div>
-                            <div style={{ fontSize: 16, color: "#999" }}>{Math.round(food.calorie)}kcal · P{Math.round(food.proteine_g)}g · C{Math.round(food.carboidrati_g)}g · F{Math.round(food.grassi_g)}g</div>
-                          </div>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => setEditingFood(food.id)} style={{ fontSize: 16, color: "#378ADD", background: "transparent", border: "none", cursor: "pointer", ...f }}>modifica</button>
-                            <button onClick={() => removeFood(meal, food.id)} style={{ fontSize: 16, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {addingMeal === meal && (
-                    <div style={{ marginTop: 10, padding: 10, background: "#f9f9f6", borderRadius: 8 }}>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        <input value={foodSearch} onChange={e => setFoodSearch(e.target.value)} placeholder="Es. petto di pollo 150g" onKeyDown={e => e.key === "Enter" && searchFood(foodSearch)} style={{ flex: 1, padding: "7px 10px", border: "0.5px solid #e0e0d8", borderRadius: 12, fontSize: 15, background: "white", color: "#1a1a1a", outline: "none", ...f }} />
-                        <button onClick={() => searchFood(foodSearch)} style={{ padding: "7px 12px", background: "#1D9E75", border: "none", borderRadius: 12, color: "white", fontSize: 15, cursor: "pointer", ...f }}>Cerca</button>
-                        <button onClick={() => { setAddingMeal(null); setFoodSearch(""); setFoodResults([]); }} style={{ padding: "7px 10px", border: "0.5px solid #ddd", borderRadius: 12, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", ...f }}>✕</button>
+                        {isToday && (
+                          <button onClick={() => removeFood(meal, food.id)} style={{ ...S.btnSmall(C.red), minHeight: 36 }}>✕</button>
+                        )}
                       </div>
-                      {foodLoading && <div style={{ fontSize: 15, color: "#999", textAlign: "center", padding: "13px 0" }}>Ricerca in corso...</div>}
-                      {foodResults.map((fr, i) => (
-                        <div key={i} onClick={() => addFood(meal, fr)} style={{ padding: "8px 10px", border: "0.5px solid #e0e0d8", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: "white" }}>
-                          <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>{fr.nome}</div>
-                          <div style={{ fontSize: 16, color: "#999" }}>{Math.round(fr.calorie)}kcal · P{Math.round(fr.proteine_g)}g · C{Math.round(fr.carboidrati_g)}g · F{Math.round(fr.grassi_g)}g</div>
+                    ))}
+                  </div>
+                )}
+                {addingMeal === meal && isToday && (
+                  <div style={{ ...S.cardPad, borderTop: `1px solid ${C.border}` }}>
+                    {/* Modalità ricerca */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                      {[
+                        { id: "text", icon: "🔍", label: "Cerca" },
+                        { id: "camera", icon: "📷", label: "Foto" },
+                        { id: "gallery", icon: "🖼️", label: "Galleria" },
+                      ].map(m => (
+                        <button key={m.id} onClick={() => {
+                          setPhotoMode(m.id === "text" ? null : m.id);
+                          setFoodResults([]);
+                          if (m.id === "camera") cameraInputRef.current?.click();
+                          if (m.id === "gallery") galleryInputRef.current?.click();
+                        }} style={{ flex: 1, ...S.btnSmall(photoMode === m.id || (m.id === "text" && !photoMode) ? C.green : C.textTertiary), justifyContent: "center", gap: 4 }}>
+                          <span style={{ fontSize: 18 }}>{m.icon}</span>
+                          <span style={{ fontSize: 14 }}>{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Input nascosti per foto */}
+                    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) searchFoodByPhoto(f, meal); e.target.value = ""; }} />
+                    <input ref={galleryInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) searchFoodByPhoto(f, meal); e.target.value = ""; }} />
+
+                    {/* Campo testo */}
+                    {!photoMode && (
+                      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                        <input value={foodSearch} onChange={e => setFoodSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && searchFood(foodSearch)}
+                          placeholder="Es. petto di pollo 150g" style={{ ...S.input, flex: 1 }} autoFocus />
+                        <button onClick={() => searchFood(foodSearch)} style={{ ...S.btn(C.green), width: "auto", padding: "0 20px" }}>
+                          {foodLoading ? "..." : "Cerca"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Loading foto */}
+                    {foodLoading && (
+                      <div style={{ textAlign: "center", padding: "20px 0" }}>
+                        <div style={{ fontSize: 36, marginBottom: 8 }}>{photoMode ? "🔍" : "⏳"}</div>
+                        <div style={{ ...T.footnote }}>
+                          {photoMode ? "Analisi immagine in corso..." : "Ricerca in corso..."}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Risultati */}
+                    {!foodLoading && foodResults.map((food, i) => (
+                      <div key={i} onClick={() => addFood(meal, food)} style={{ ...S.cardPad, background: C.bg, borderRadius: 12, marginBottom: 8, cursor: "pointer" }}>
+                        <div style={T.body}>{food.nome}</div>
+                        <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
+                          <span style={{ ...T.footnote, fontWeight: 600, color: C.orange }}>{food.calorie} kcal</span>
+                          <span style={{ ...T.footnote, color: C.blue }}>P {food.proteine_g}g</span>
+                          <span style={{ ...T.footnote, color: C.orange }}>C {food.carboidrati_g}g</span>
+                          <span style={{ ...T.footnote, color: C.red }}>G {food.grassi_g}g</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── ALLENAMENTO TAB ─────────────────────────────────────────────────────────
+  function TabAllenamento() {
+    const { weekNum, phase } = getPhaseAndWeek();
+    const workouts = getWorkoutsForPhase(phase);
+    const assigned = workoutAssignments[dateKey(weekDays[selectedDay])];
+    const wInfo = workouts.find(w => w.id === assigned);
+    const displayScheda = (() => {
+      if (!wInfo) return null;
+      const tipo = wInfo.id === "push" ? "palestra" : wInfo.id === "pull" ? "palestra" : wInfo.id;
+      return schedaAllenamento.giorni_settimana?.find(d => d.tipo === tipo) || null;
+    })();
+
+    return (
+      <div style={S.page}>
+        <div style={{ background: C.card, padding: "56px 20px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={T.title1}>Allenamento</div>
+          <div style={{ ...T.subhead, color: C.textSecondary, marginTop: 4 }}>Settimana {weekNum} · {phase?.nome}</div>
+        </div>
+
+        <div style={{ padding: "16px 16px 0" }}>
+
+          {/* Fase corrente */}
+          <div style={{ ...S.card, ...S.cardPad, background: C.greenLight, border: `1px solid ${C.green}30`, marginBottom: 12 }}>
+            <div style={{ ...T.footnote, color: C.green, fontWeight: 600, marginBottom: 4 }}>FASE CORRENTE</div>
+            <div style={T.title3}>{phase?.nome}</div>
+            <div style={T.footnote}>{phase?.settimane} settimane · {phase?.allenamenti_settimana} sessioni/sett</div>
+          </div>
+
+          {/* Token */}
+          <div style={{ ...S.card, ...S.cardPad }}>
+            <div style={{ ...T.label, marginBottom: 12 }}>Scegli tipo sessione</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {workouts.map(w => (
+                <button key={w.id} onClick={() => setSelectedWorkoutToken(selectedWorkoutToken === w.id ? null : w.id)}
+                  style={{ flex: 1, padding: "14px 10px", borderRadius: 14, border: `2px solid ${selectedWorkoutToken === w.id ? w.color : C.border}`, background: selectedWorkoutToken === w.id ? w.color + "18" : C.bg, cursor: "pointer" }}>
+                  <div style={{ fontSize: 28 }}>{w.emoji}</div>
+                  <div style={{ ...T.subhead, fontWeight: 600, color: selectedWorkoutToken === w.id ? w.color : C.text, marginTop: 4 }}>{w.label}</div>
+                </button>
+              ))}
+            </div>
+            {selectedWorkoutToken && <div style={{ ...T.footnote, color: C.green, textAlign: "center", marginTop: 10, fontWeight: 600 }}>✓ Tocca un giorno per assegnare</div>}
+          </div>
+
+          {/* Calendario settimana */}
+          <div style={S.card}>
+            <div style={{ ...S.cardPad, borderBottom: `1px solid ${C.border}`, ...S.row }}>
+              <button onClick={() => setCalWeekOffset(o => o-1)} style={{ ...S.btnSmall(C.textSecondary), background: "transparent", border: "none", fontSize: 22, padding: "0 8px" }}>‹</button>
+              <span style={{ ...T.body, fontWeight: 600 }}>
+                {weekDays[0]?.toLocaleDateString("it-IT", { day: "numeric", month: "short" })} — {weekDays[6]?.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+              </span>
+              <button onClick={() => setCalWeekOffset(o => o+1)} style={{ ...S.btnSmall(C.textSecondary), background: "transparent", border: "none", fontSize: 22, padding: "0 8px" }}>›</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 0 }}>
+              {weekDays.map((d, i) => {
+                const dk = dateKey(d);
+                const asgn = workoutAssignments[dk];
+                const w = workouts.find(x => x.id === asgn);
+                const isToday = dk === dateKey(new Date());
+                const isSel = i === selectedDay;
+                return (
+                  <button key={i} onClick={() => {
+                    if (selectedWorkoutToken) {
+                      const newA = { ...workoutAssignments };
+                      weekDays.forEach(wd => { if (newA[dateKey(wd)] === selectedWorkoutToken) delete newA[dateKey(wd)]; });
+                      newA[dk] = selectedWorkoutToken;
+                      setWorkoutAssignments(newA);
+                      setSelectedWorkoutToken(null);
+                      setSelectedDay(i);
+                      setDayMenu(null);
+                    } else if (asgn) {
+                      setDayMenu(prev => prev?.dk === dk ? null : { dk });
+                      setSelectedDay(i);
+                    } else {
+                      setSelectedDay(i);
+                      setDayMenu(null);
+                    }
+                  }} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 4px", background: isSel ? C.green + "15" : "transparent", border: "none", borderRight: i < 6 ? `1px solid ${C.border}` : "none", cursor: "pointer", position: "relative" }}>
+                    <span style={{ ...T.caption, fontWeight: 600, textTransform: "uppercase" }}>{dayNames[d.getDay()]}</span>
+                    <span style={{ ...T.title3, color: isSel ? C.green : isToday ? C.green : C.text, marginTop: 2 }}>{d.getDate()}</span>
+                    {w && <div style={{ width: 8, height: 8, borderRadius: 4, background: w.color, marginTop: 4 }} />}
+                    {!w && <div style={{ width: 8, height: 8, marginTop: 4 }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Menu giorno */}
+          {dayMenu && (() => {
+            const menuW = workouts.find(w => w.id === workoutAssignments[dayMenu.dk]);
+            if (!menuW) return null;
+            return (
+              <div style={{ ...S.card, ...S.cardPad, ...S.row, border: `1.5px solid ${menuW.color}30`, background: menuW.color + "08" }}>
+                <div style={{ ...T.body, fontWeight: 600 }}>{menuW.emoji} {menuW.label}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setSelectedWorkoutToken(menuW.id); const n = { ...workoutAssignments }; delete n[dayMenu.dk]; setWorkoutAssignments(n); setDayMenu(null); }} style={S.btnSmall(C.blue)}>Sposta</button>
+                  <button onClick={() => { const n = { ...workoutAssignments }; delete n[dayMenu.dk]; setWorkoutAssignments(n); setDayMenu(null); }} style={S.btnSmall(C.red)}>Elimina</button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Scheda esercizi */}
+          {displayScheda && (
+            <Section title="Scheda del giorno">
+              <div style={S.cardPad}>
+                <div style={{ ...T.title3, marginBottom: 4 }}>{displayScheda.titolo}</div>
+                <div style={{ ...T.footnote, marginBottom: 14 }}>{displayScheda.descrizione}</div>
+                {displayScheda.esercizi?.map((ex, ei) => (
+                  <div key={ei} style={{ background: C.bg, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                    <div style={{ ...T.body, fontWeight: 600, marginBottom: 6 }}>{ex.nome}</div>
+                    <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+                      {[["Serie", ex.serie], ["Rip.", ex.ripetizioni], ["Rec.", ex.recupero_secondi ? ex.recupero_secondi + "s" : "—"]].map(([lbl, val]) => (
+                        <div key={lbl} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "8px 10px", textAlign: "center" }}>
+                          <div style={{ ...T.num, fontSize: 20 }}>{val}</div>
+                          <div style={T.caption}>{lbl}</div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ══════════════════ ALLENAMENTO ══════════════════ */}
-        {activeTab === "allenamento" && (
-          <div style={{ padding: "20px 16px 16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 400, color: "#1a1a1a" }}>Allenamento</h1>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={() => setCalWeekOffset(p => p - 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>‹</button>
-                <span style={{ fontSize: 16, color: "#999" }}>{weekDays[0].getDate()}/{weekDays[0].getMonth()+1} — {weekDays[6].getDate()}/{weekDays[6].getMonth()+1}</span>
-                <button onClick={() => setCalWeekOffset(p => p + 1)} style={{ background: "transparent", border: "none", color: "#999", cursor: "pointer", fontSize: 18, ...f }}>›</button>
-              </div>
-            </div>
-
-            {/* Fase e settimana */}
-            {(() => {
-              const { weekNum, phase } = getPhaseAndWeek();
-              const workouts = getWorkoutsForPhase(phase);
-              return (
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>
-                      {phase?.nome ? `Fase ${phase.numero} — ${phase.nome}` : "Fase 1"} · Settimana {weekNum}
-                    </div>
-                    <div style={{ fontSize: 16, color: "#999" }}>{phase?.allenamenti_settimana || 2} allenamenti/sett.</div>
-                  </div>
-
-                  {/* Token allenamenti da assegnare */}
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 16, color: "#999", marginBottom: 6 }}>
-                      {selectedWorkoutToken ? `Tocca un giorno per assegnare "${workouts.find(w=>w.id===selectedWorkoutToken)?.label}"` : "Tocca un allenamento poi un giorno per assegnarlo"}
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {workouts.map(w => {
-                        const assignedDay = Object.entries(workoutAssignments).find(([k,v]) => {
-                          const d = new Date(k);
-                          return v === w.id && d >= weekDays[0] && d <= weekDays[6];
-                        });
-                        const isSelected = selectedWorkoutToken === w.id;
-                        const isAssigned = !!assignedDay;
-                        return (
-                          <button key={w.id}
-                            onClick={() => {
-                              if (isSelected) { setSelectedWorkoutToken(null); return; }
-                              setSelectedWorkoutToken(w.id);
-                            }}
-                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 20, border: `1.5px solid ${isSelected ? w.color : isAssigned ? w.color : "#e0e0d8"}`, background: isSelected ? w.color : isAssigned ? w.color + "22" : "white", color: isSelected ? "white" : isAssigned ? w.color : "#999", fontSize: 17, cursor: "pointer", opacity: isAssigned && !isSelected ? 0.7 : 1, ...f }}>
-                            <span>{w.emoji}</span>
-                            <span>{w.label}</span>
-                            {isAssigned && <span style={{ fontSize: 9 }}>✓</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Calendario */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4, marginBottom: 14 }}>
-                    {weekDays.map((d, i) => {
-                      const dk = dateKey(d);
-                      const assigned = workoutAssignments[dk];
-                      const wInfo = workouts.find(w => w.id === assigned);
-                      const isToday = d.toDateString() === today.toDateString();
-                      const isSel = selectedDay === i;
-                      const extraForDay = (extraSaved[`${calWeekOffset}-${i}`] || []).length > 0;
-                      return (
-                        <div key={i}
-                          onClick={() => {
-                            if (selectedWorkoutToken) {
-                              const newAssign = { ...workoutAssignments };
-                              weekDays.forEach(wd => {
-                                const wdk = dateKey(wd);
-                                if (newAssign[wdk] === selectedWorkoutToken) delete newAssign[wdk];
-                              });
-                              newAssign[dk] = selectedWorkoutToken;
-                              setWorkoutAssignments(newAssign);
-                              setSelectedWorkoutToken(null);
-                              setSelectedDay(i);
-                              setDayMenu(null);
-                            } else if (assigned) {
-                              setDayMenu(prev => prev?.dk === dk ? null : { dk });
-                              setSelectedDay(i);
-                            } else {
-                              setSelectedDay(i);
-                              setDayMenu(null);
-                            }
-                          }}
-                          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "6px 2px", borderRadius: 12, background: isSel ? "white" : selectedWorkoutToken ? "#f0faf5" : "transparent", border: isSel ? `1.5px solid ${wInfo?.color || "#e0e0d8"}` : selectedWorkoutToken ? "0.5px dashed #1D9E75" : "none", cursor: "pointer", transition: "background 0.15s" }}>
-                          <span style={{ fontSize: 12, color: "#999" }}>{dayNames[d.getDay()]}</span>
-                          <span style={{ fontSize: 16, fontWeight: isSel ? 500 : 400, color: isToday ? "#1D9E75" : "#1a1a1a" }}>{d.getDate()}</span>
-                          <div style={{ display: "flex", gap: 2 }}>
-                            {wInfo && <div style={{ width: 6, height: 6, borderRadius: "50%", background: wInfo.color }} />}
-                            {extraForDay && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF9F27" }} />}
-                            {!wInfo && !extraForDay && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#eee" }} />}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Context menu for assigned day */}
-                  {dayMenu && (() => {
-                    const menuAssigned = workoutAssignments[dayMenu.dk];
-                    const menuW = workouts.find(w => w.id === menuAssigned);
-                    if (!menuW) return null;
-                    return (
-                      <div style={{ background: "white", border: `1px solid ${menuW.color}`, borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ flex: 1, fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>
-                          {menuW.emoji} {menuW.label} assegnato
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedWorkoutToken(menuW.id);
-                            const newAssign = { ...workoutAssignments };
-                            delete newAssign[dayMenu.dk];
-                            setWorkoutAssignments(newAssign);
-                            setDayMenu(null);
-                          }}
-                          style={{ padding: "5px 12px", border: `0.5px solid #378ADD`, borderRadius: 7, background: "transparent", color: "#378ADD", fontSize: 17, cursor: "pointer", ...f }}>
-                          Sposta
-                        </button>
-                        <button
-                          onClick={() => {
-                            const newAssign = { ...workoutAssignments };
-                            delete newAssign[dayMenu.dk];
-                            setWorkoutAssignments(newAssign);
-                            setDayMenu(null);
-                          }}
-                          style={{ padding: "5px 12px", border: "0.5px solid #E24B4A", borderRadius: 7, background: "transparent", color: "#E24B4A", fontSize: 17, cursor: "pointer", ...f }}>
-                          Elimina
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })()}
-
-            {(() => {
-              const dk = dateKey(selectedDayDate);
-              const assigned = workoutAssignments[dk];
-              let overrideSchedule = null;
-              const { phase } = getPhaseAndWeek();
-              const workouts = getWorkoutsForPhase(phase);
-              if (assigned === "palestra" || assigned === "push" || assigned === "pull") {
-                overrideSchedule = schedaAllenamento.giorni_settimana?.find(d => d.tipo === "palestra") || null;
-              } else if (assigned === "corsa") {
-                overrideSchedule = schedaAllenamento.giorni_settimana?.find(d => d.tipo === "corsa") || null;
-              }
-              const displaySchedule = overrideSchedule || null;
-              return displaySchedule ? (
-              <div style={card()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>{displaySchedule?.titolo}</div>
-                    {displaySchedule?.descrizione && <div style={{ fontSize: 17, color: "#999", marginTop: 2, lineHeight: 1.4 }}>{displaySchedule?.descrizione}</div>}
-                  </div>
-                  <span style={{ fontSize: 16, padding: "3px 8px", borderRadius: 10, background: displaySchedule?.tipo === "palestra" ? "#E1F5EE" : displaySchedule?.tipo === "corsa" ? "#E6F1FB" : "#f0f0e8", color: displaySchedule?.tipo === "palestra" ? "#0F6E56" : displaySchedule?.tipo === "corsa" ? "#185FA5" : "#999", flexShrink: 0, marginLeft: 8 }}>{displaySchedule?.tipo}</span>
-                </div>
-
-                {displaySchedule?.tipo === "riposo" ? (
-                  <div style={{ textAlign: "center", padding: "16px 0", color: "#bbb", fontSize: 13 }}>Giorno di riposo — recupero attivo consigliato</div>
-                ) : (
-                  <>
-                    {displaySchedule?.esercizi?.map((ex, ei) => {
-                      const key = `${calWeekOffset}-${selectedDay}-${ei}`;
-                      return (
-                        <div key={ei} style={{ borderTop: "0.5px solid #f0f0e8", paddingTop: 10, marginTop: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>{ex.nome}</span>
-                            <span style={{ fontSize: 16, color: "#999", textAlign: "right", marginLeft: 8, flexShrink: 0 }}>{ex.serie}× {ex.ripetizioni}{ex.recupero_secondi > 0 ? ` · ${ex.recupero_secondi}s` : ""}</span>
-                          </div>
-                          {ex.note_tecniche && <div style={{ fontSize: 16, color: "#888", background: "#f9f9f6", borderRadius: 10, padding: "4px 8px", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>ℹ {ex.note_tecniche}</div>}
-                          {ex.recupero_secondi > 0 && (
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <span style={{ fontSize: 16, color: "#999" }}>Peso</span>
-                              <input type="number" placeholder="kg" value={exerciseData[key]?.peso || ""} onChange={e => setExerciseData(p => ({ ...p, [key]: { ...p[key], peso: e.target.value } }))} style={{ width: 50, padding: "3px 6px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} />
-                              <span style={{ fontSize: 16, color: "#999" }}>Rip</span>
-                              <input type="number" placeholder="rip" value={exerciseData[key]?.rip || ""} onChange={e => setExerciseData(p => ({ ...p, [key]: { ...p[key], rip: e.target.value } }))} style={{ width: 50, padding: "3px 6px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    <div style={{ borderTop: "0.5px solid #f0f0e8", paddingTop: 10, marginTop: 10 }}>
-                      <div style={{ fontSize: 17, color: "#999", marginBottom: 6 }}>Come ti sei sentito?</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {["😞","😐","😊"].map((e, i) => (
-                          <div key={i} onClick={() => setWorkoutMood(p => ({ ...p, [selectedDay]: i }))}
-                            style={{ flex: 1, padding: 8, border: `0.5px solid ${workoutMood[selectedDay] === i ? "#1D9E75" : "#e0e0d8"}`, borderRadius: 12, textAlign: "center", cursor: "pointer", fontSize: 18, background: workoutMood[selectedDay] === i ? "#E1F5EE" : "#f9f9f6" }}>{e}</div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <textarea value={workoutNotes[selectedDay] || ""} onChange={e => setWorkoutNotes(p => ({ ...p, [selectedDay]: e.target.value }))} placeholder="Note sulla sessione..." rows={2}
-                      style={{ width: "100%", marginTop: 10, padding: 8, border: "0.5px solid #e0e0d8", borderRadius: 12, background: "#f9f9f6", color: "#1a1a1a", fontSize: 17, resize: "none", outline: "none", ...f }} />
-
-                    <button onClick={() => setSavedSessions(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: { date: selectedDayDate.toLocaleDateString("it-IT"), savedAt: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) } }))}
-                      style={{ width: "100%", marginTop: 10, padding: 10, background: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "#f0faf5" : "#1D9E75", border: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "0.5px solid #1D9E75" : "none", borderRadius: 12, color: savedSessions[`${calWeekOffset}-${selectedDay}`] ? "#0F6E56" : "white", fontSize: 16, cursor: "pointer", ...f }}>
-                      {savedSessions[`${calWeekOffset}-${selectedDay}`] ? `✓ Salvato alle ${savedSessions[`${calWeekOffset}-${selectedDay}`].savedAt}` : "Salva sessione"}
-                    </button>
-
-                    {savedSessions[`${calWeekOffset}-${selectedDay}`] && (
-                      <div style={{ marginTop: 12, borderTop: "0.5px solid #f0f0e8", paddingTop: 12 }}>
-                        <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a", marginBottom: 6 }}>Feedback adattivo</div>
-                        <div style={{ fontSize: 17, color: "#999", marginBottom: 6 }}>Dimmi com'è andata — carichi, difficoltà, sensazioni, dolori</div>
-                        <textarea
-                          value={feedbackText[`${calWeekOffset}-${selectedDay}`] || ""}
-                          onChange={e => setFeedbackText(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: e.target.value }))}
-                          placeholder="Es: panca fatta con 12kg per 10 rip, goblet squat facile, leggero fastidio al gomito durante la lat machine..."
-                          rows={3}
-                          style={{ width: "100%", padding: 8, border: "0.5px solid #e0e0d8", borderRadius: 12, background: "#f9f9f6", color: "#1a1a1a", fontSize: 17, resize: "none", outline: "none", ...f }}
-                        />
-                        <button
-                          onClick={() => requestAdaptivePlan(`${calWeekOffset}-${selectedDay}`)}
-                          disabled={adaptiveLoading}
-                          style={{ width: "100%", marginTop: 8, padding: 10, background: adaptiveLoading ? "#f0f0e8" : "#1a1a1a", border: "none", borderRadius: 12, color: adaptiveLoading ? "#999" : "white", fontSize: 15, cursor: adaptiveLoading ? "default" : "pointer", ...f }}>
-                          {adaptiveLoading ? "Elaborazione in corso..." : "⟳ Aggiorna piano con il tuo feedback"}
-                        </button>
-                        {adaptiveResponse[`${calWeekOffset}-${selectedDay}`] && (
-                          <div style={{ marginTop: 10, padding: 12, background: "#f0faf5", borderRadius: 12, border: "0.5px solid #b8e8d0" }}>
-                            <div style={{ fontSize: 17, fontWeight: 500, color: "#0F6E56", marginBottom: 6 }}>Suggerimento PT</div>
-                            <div style={{ fontSize: 17, color: "#1a1a1a", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{adaptiveResponse[`${calWeekOffset}-${selectedDay}`]}</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              ) : (
-                <div style={{ ...card(), textAlign: "center", color: "#bbb", fontSize: 13 }}>
-                  {workoutAssignments[dateKey(selectedDayDate)] ? "Caricamento scheda..." : "Nessun allenamento assegnato — tocca un allenamento sopra e poi questo giorno"}
-                </div>
-              );
-            })()}
-
-            {/* Attività extra */}
-            {(extraSaved[`${calWeekOffset}-${selectedDay}`] || []).map((act, i) => {
-              const key = `${calWeekOffset}-${selectedDay}-${i}`;
-              const isExpanded = extraExpanded[key];
-              const isEditing = extraEditing[key];
-              return (
-                <div key={i} style={{ ...card(), background: "#f9f9f6", marginTop: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>{act.type === "palestra" ? "🏋 Palestra extra" : `🏃 ${act.nome}`}</div>
-                      <div style={{ fontSize: 17, color: "#999", marginTop: 2 }}>
-                        {act.type === "altra" && <>{act.tempo && `${act.tempo} min`}{act.km && ` · ${act.km} km`}{act.calorie && ` · ${act.calorie} kcal`}{act.km && act.tempo && ` · ${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km`}</>}
-                        {act.type === "palestra" && `${act.esercizi?.length} esercizi`}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                      <button onClick={() => setExtraExpanded(p => ({ ...p, [key]: !p[key] }))} style={{ fontSize: 16, color: "#378ADD", background: "transparent", border: "none", cursor: "pointer", ...f }}>{isExpanded ? "chiudi" : "dettagli"}</button>
-                      <button onClick={() => { setExtraEditing(p => ({ ...p, [key]: !p[key] })); setExtraExpanded(p => ({ ...p, [key]: true })); }} style={{ fontSize: 16, color: "#1D9E75", background: "transparent", border: "none", cursor: "pointer", ...f }}>{isEditing ? "chiudi" : "modifica"}</button>
-                      <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].filter((_, j) => j !== i) }))} style={{ fontSize: 16, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
-                    </div>
-                  </div>
-
-                  {isExpanded && act.type === "altra" && (
-                    <div style={{ marginTop: 10, borderTop: "0.5px solid #e0e0d8", paddingTop: 10 }}>
-                      {isEditing ? (
-                        <div>
-                          {[["Nome attività", "nome", "text"], ["Durata (min)", "tempo", "number"], ["Calorie", "calorie", "number"], ["Distanza (km)", "km", "number"]].map(([label, k, type]) => (
-                            <div key={k} style={{ marginBottom: 8 }}>
-                              <div style={{ fontSize: 16, color: "#999", marginBottom: 3 }}>{label}</div>
-                              <input type={type} value={act[k] || ""} onChange={e => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, [k]: e.target.value } : x) }))}
-                                style={{ width: "100%", padding: "5px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "white", color: "#1a1a1a", outline: "none", boxSizing: "border-box", ...f }} />
-                            </div>
-                          ))}
-                          {act.km && act.tempo && <div style={{ fontSize: 17, color: "#0F6E56", marginTop: 4 }}>Passo: {Math.floor(act.tempo/act.km)}'{String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km</div>}
-                        </div>
-                      ) : (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          {[["Durata", act.tempo ? act.tempo + " min" : "—"], ["Calorie", act.calorie ? act.calorie + " kcal" : "—"], ["Distanza", act.km ? act.km + " km" : "—"], ["Passo", act.km && act.tempo ? `${Math.floor(act.tempo/act.km)}'${String(Math.round(((act.tempo/act.km)%1)*60)).padStart(2,"0")}"/km` : "—"]].map(([l, v]) => (
-                            <div key={l} style={{ background: "white", borderRadius: 10, padding: "12px 14px" }}>
-                              <div style={{ fontSize: 12, color: "#999" }}>{l}</div>
-                              <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>{v}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {isExpanded && act.type === "palestra" && (
-                    <div style={{ marginTop: 10, borderTop: "0.5px solid #e0e0d8", paddingTop: 10 }}>
-                      {isEditing ? (
-                        <div>
-                          {act.esercizi?.map((ex, ei) => (
-                            <div key={ei} style={{ background: "white", borderRadius: 12, padding: 8, marginBottom: 8 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>Es. {ei + 1}</div>
-                                {act.esercizi.length > 1 && <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.filter((_, k) => k !== ei) } : x) }))} style={{ fontSize: 12, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>}
-                              </div>
-                              <input value={ex.nome} onChange={e => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.map((z, k) => k === ei ? { ...z, nome: e.target.value } : z) } : x) }))}
-                                placeholder="Nome esercizio" style={{ width: "100%", padding: "5px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, marginBottom: 10, background: "#f9f9f6", color: "#1a1a1a", outline: "none", boxSizing: "border-box", ...f }} />
-                              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 }}>
-                                {[["kg","peso"],["serie","serie"],["rip","rip"],["rec(s)","recupero"]].map(([label, k]) => (
-                                  <div key={k}><div style={{ fontSize: 12, color: "#999", marginBottom: 2 }}>{label}</div>
-                                  <input type="number" value={ex[k]} onChange={e => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: x.esercizi.map((z, k2) => k2 === ei ? { ...z, [k]: e.target.value } : z) } : x) }))}
-                                    style={{ width: "100%", padding: "4px 5px", border: "0.5px solid #e0e0d8", borderRadius: 5, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} /></div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                          <button onClick={() => setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: p[`${calWeekOffset}-${selectedDay}`].map((x, j) => j === i ? { ...x, esercizi: [...x.esercizi, { nome: "", peso: "", serie: "", rip: "", recupero: "" }] } : x) }))}
-                            style={{ width: "100%", padding: 7, border: "0.5px dashed #1D9E75", borderRadius: 12, background: "transparent", color: "#1D9E75", fontSize: 17, cursor: "pointer", ...f }}>+ aggiungi esercizio</button>
-                        </div>
-                      ) : (
-                        act.esercizi?.map((ex, ei) => (
-                          <div key={ei} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "0.5px solid #f0f0e8", fontSize: 11 }}>
-                            <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{ex.nome || `Esercizio ${ei+1}`}</span>
-                            <span style={{ color: "#999" }}>{ex.serie && ex.rip ? `${ex.serie}×${ex.rip}` : ""}{ex.peso ? ` · ${ex.peso}kg` : ""}{ex.recupero ? ` · ${ex.recupero}s` : ""}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {!extraOpen ? (
-              <button onClick={() => setExtraOpen(true)} style={{ width: "100%", padding: 10, border: "0.5px dashed #ccc", borderRadius: 10, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", marginTop: 8, ...f }}>+ aggiungi attività extra</button>
-            ) : (
-              <div style={{ ...card(), marginTop: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontSize: 16, fontWeight: 500, color: "#1a1a1a" }}>Attività extra</div>
-                  <button onClick={() => { setExtraOpen(false); setExtraType(null); setExtraAttivita({ nome: "", tempo: "", calorie: "", km: "" }); setExtraEsercizi([{ nome: "", peso: "", serie: "", rip: "", recupero: "" }]); }} style={{ fontSize: 17, color: "#999", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
-                </div>
-
-                {!extraType ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <button onClick={() => setExtraType("palestra")}
-                      style={{ padding: "14px 10px", border: "0.5px solid #e0e0d8", borderRadius: 10, background: "#f9f9f6", cursor: "pointer", textAlign: "center", ...f }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>🏋</div>
-                      <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>Allenamento pesi</div>
-                      <div style={{ fontSize: 16, color: "#999", marginTop: 2 }}>Esercizi, serie, ripetizioni</div>
-                    </button>
-                    <button onClick={() => setExtraType("altra")}
-                      style={{ padding: "14px 10px", border: "0.5px solid #e0e0d8", borderRadius: 10, background: "#f9f9f6", cursor: "pointer", textAlign: "center", ...f }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>🏃</div>
-                      <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>Altra attività</div>
-                      <div style={{ fontSize: 16, color: "#999", marginTop: 2 }}>Corsa, ciclismo, nuoto...</div>
-                    </button>
-                  </div>
-                ) : extraType === "altra" ? (
-                  <div>
-                    {[["Nome attività", "nome", "Es. Corsa, Ciclismo, Nuoto..."], ["Durata (minuti)", "tempo", "Es. 45"], ["Calorie consumate", "calorie", "Es. 320"], ["Distanza (km)", "km", "Es. 5.2"]].map(([label, key, placeholder]) => (
-                      <div key={key} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 17, color: "#999", marginBottom: 4 }}>{label}</div>
-                        <input type={key === "nome" ? "text" : "number"} value={extraAttivita[key]} onChange={e => setExtraAttivita(p => ({ ...p, [key]: e.target.value }))}
-                          placeholder={placeholder}
-                          style={{ width: "100%", padding: "7px 10px", border: "0.5px solid #e0e0d8", borderRadius: 12, fontSize: 15, background: "#f9f9f6", color: "#1a1a1a", outline: "none", boxSizing: "border-box", ...f }} />
-                      </div>
-                    ))}
-                    {extraAttivita.km && extraAttivita.tempo && (
-                      <div style={{ padding: "8px 12px", background: "#E1F5EE", borderRadius: 12, marginBottom: 10, fontSize: 11 }}>
-                        <span style={{ color: "#0F6E56", fontWeight: 500 }}>Passo calcolato: </span>
-                        <span style={{ color: "#1a1a1a" }}>
-                          {Math.floor(extraAttivita.tempo / extraAttivita.km)}'{String(Math.round(((extraAttivita.tempo / extraAttivita.km) % 1) * 60)).padStart(2, "0")}" /km
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 12, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", ...f }}>← Indietro</button>
-                      <button onClick={() => { setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: [...(p[`${calWeekOffset}-${selectedDay}`] || []), { type: "altra", ...extraAttivita, data: selectedDayDate.toLocaleDateString("it-IT") }] })); setExtraOpen(false); setExtraType(null); setExtraAttivita({ nome: "", tempo: "", calorie: "", km: "" }); }}
-                        style={{ flex: 2, padding: 9, background: "#1D9E75", border: "none", borderRadius: 12, color: "white", fontSize: 15, cursor: "pointer", ...f }}>Salva attività</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {extraEsercizi.map((ex, ei) => (
-                      <div key={ei} style={{ background: "#f9f9f6", borderRadius: 12, padding: 10, marginBottom: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                          <div style={{ fontSize: 17, fontWeight: 500, color: "#1a1a1a" }}>Esercizio {ei + 1}</div>
-                          {extraEsercizi.length > 1 && (
-                            <button onClick={() => setExtraEsercizi(p => p.filter((_, j) => j !== ei))} style={{ fontSize: 16, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
-                          )}
-                        </div>
-                        <input value={ex.nome} onChange={e => setExtraEsercizi(p => p.map((x, j) => j === ei ? { ...x, nome: e.target.value } : x))}
-                          placeholder="Nome esercizio"
-                          style={{ width: "100%", padding: "12px 14px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 15, background: "white", color: "#1a1a1a", outline: "none", marginBottom: 12, boxSizing: "border-box", ...f }} />
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
-                          {[["Peso (kg)", "peso"], ["Serie", "serie"], ["Rip.", "rip"], ["Rec. (s)", "recupero"]].map(([label, key]) => (
-                            <div key={key}>
-                              <div style={{ fontSize: 12, color: "#999", marginBottom: 3 }}>{label}</div>
-                              <input type="number" value={ex[key]} onChange={e => setExtraEsercizi(p => p.map((x, j) => j === ei ? { ...x, [key]: e.target.value } : x))}
-                                style={{ width: "100%", padding: "5px 6px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "white", color: "#1a1a1a", outline: "none", ...f }} />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    <button onClick={() => setExtraEsercizi(p => [...p, { nome: "", peso: "", serie: "", rip: "", recupero: "" }])}
-                      style={{ width: "100%", padding: 8, border: "0.5px dashed #1D9E75", borderRadius: 12, background: "transparent", color: "#1D9E75", fontSize: 15, cursor: "pointer", marginBottom: 10, ...f }}>
-                      + aggiungi esercizio
-                    </button>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setExtraType(null)} style={{ flex: 1, padding: 9, border: "0.5px solid #ddd", borderRadius: 12, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", ...f }}>← Indietro</button>
-                      <button onClick={() => { setExtraSaved(p => ({ ...p, [`${calWeekOffset}-${selectedDay}`]: [...(p[`${calWeekOffset}-${selectedDay}`] || []), { type: "palestra", esercizi: extraEsercizi, data: selectedDayDate.toLocaleDateString("it-IT") }] })); setExtraOpen(false); setExtraType(null); setExtraEsercizi([{ nome: "", peso: "", serie: "", rip: "", recupero: "" }]); }}
-                        style={{ flex: 2, padding: 9, background: "#1D9E75", border: "none", borderRadius: 12, color: "white", fontSize: 15, cursor: "pointer", ...f }}>Salva allenamento</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ══════════════════ MENTE ══════════════════ */}
-        {activeTab === "mente" && (
-          <div style={{ padding: "20px 16px 16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 400, color: "#1a1a1a" }}>Mente</h1>
-              <span style={{ fontSize: 17, color: "#999" }}>{new Date().toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}</span>
-            </div>
-
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 10 }}>Streak costanza</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                <div style={{ fontSize: 40, fontWeight: 400, color: "#1D9E75" }}>{streak}</div>
-                <div style={{ fontSize: 15, color: "#999", lineHeight: 1.6 }}>giorni consecutivi<br />con almeno un'attività</div>
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {["L","M","M","G","V","S","D"].map((d, i) => (
-                  <div key={i} style={{ flex: 1, height: 28, borderRadius: 10, background: "#f0f0e8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#bbb" }}>{d}</div>
-                ))}
-              </div>
-              <div style={{ fontSize: 17, color: "#1D9E75", marginTop: 10, textAlign: "center" }}>Il tuo percorso inizia oggi 💪</div>
-            </div>
-
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 8 }}>Frase del giorno</div>
-              <div style={{ fontSize: 16, color: "#1a1a1a", fontStyle: "italic", lineHeight: 1.6, marginBottom: 6 }}>"{todayQuote.text}"</div>
-              <div style={{ fontSize: 16, color: "#999" }}>— {todayQuote.author}</div>
-            </div>
-
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 10 }}>Meditazione guidata</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
-                {[5, 10, 15].map(m => (
-                  <div key={m} onClick={() => !medRunning && setSelectedMedTime(m)}
-                    style={{ padding: "10px 6px", border: `0.5px solid ${selectedMedTime === m ? "#1D9E75" : "#e0e0d8"}`, borderRadius: 10, textAlign: "center", cursor: "pointer", background: selectedMedTime === m ? "#E1F5EE" : "#f9f9f6" }}>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#1a1a1a" }}>{m}</div>
-                    <div style={{ fontSize: 12, color: "#999" }}>minuti</div>
+                    {ex.note_tecniche && <div style={{ ...T.footnote, fontStyle: "italic" }}>{ex.note_tecniche}</div>}
                   </div>
                 ))}
               </div>
-              {medRunning ? (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 36, fontWeight: 400, color: "#1D9E75", marginBottom: 6 }}>
-                    {Math.floor(medSeconds/60).toString().padStart(2,"0")}:{(medSeconds%60).toString().padStart(2,"0")}
-                  </div>
-                  <div style={{ fontSize: 17, color: "#999", marginBottom: 12 }}>Inspira 4s · tieni 4s · espira 6s</div>
-                  <button onClick={stopMed} style={{ padding: "8px 20px", border: "0.5px solid #E24B4A", borderRadius: 12, background: "transparent", color: "#E24B4A", fontSize: 15, cursor: "pointer", ...f }}>Interrompi</button>
-                </div>
-              ) : (
-                <button onClick={startMed} style={{ width: "100%", padding: 10, background: "#1D9E75", border: "none", borderRadius: 12, color: "white", fontSize: 16, cursor: "pointer", ...f }}>Inizia sessione</button>
-              )}
-            </div>
-
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 12 }}>Check-in settimanale</div>
-              {[["Ho rispettato la dieta?","diet"],["Ho completato gli allenamenti?","training"],["Come mi sento mentalmente?","mental"]].map(([q, k]) => (
-                <div key={k} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 15, color: "#1a1a1a", marginBottom: 6 }}>{q}</div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {[1,2,3,4,5].map(n => (
-                      <div key={n} onClick={() => setCheckin(p => ({ ...p, [k]: n }))}
-                        style={{ flex: 1, padding: 5, border: `0.5px solid ${checkin[k] === n ? "#1D9E75" : "#e0e0d8"}`, borderRadius: 10, textAlign: "center", fontSize: 17, color: checkin[k] === n ? "#0F6E56" : "#999", cursor: "pointer", background: checkin[k] === n ? "#E1F5EE" : "#f9f9f6", fontWeight: checkin[k] === n ? 500 : 400 }}>{n}</div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={card()}>
-              <div style={{ fontSize: 17, color: "#999", marginBottom: 8 }}>Diario</div>
-              <textarea value={diaryText} onChange={e => { setDiaryText(e.target.value); setDiarySaved(false); }} placeholder="Come stai oggi? Scrivi quello che vuoi..." rows={3}
-                style={{ width: "100%", padding: 8, border: "0.5px solid #e0e0d8", borderRadius: 12, background: "#f9f9f6", color: "#1a1a1a", fontSize: 15, resize: "none", outline: "none", ...f }} />
-              <button onClick={() => setDiarySaved(true)} style={{ width: "100%", marginTop: 8, padding: 8, border: "0.5px solid #ccc", borderRadius: 12, background: diarySaved ? "#E1F5EE" : "transparent", color: diarySaved ? "#0F6E56" : "#999", fontSize: 15, cursor: "pointer", ...f }}>
-                {diarySaved ? "✓ Salvato" : "Salva nota"}
-              </button>
-            </div>
-          </div>
-        )}
+            </Section>
+          )}
+        </div>
       </div>
+    );
+  }
 
-        {/* ══════════════════ EDITOR ══════════════════ */}
-        {activeTab === "editor" && (() => {
-          const ep = editorPiano || JSON.parse(JSON.stringify(piano));
-          const es = editorScheda || JSON.parse(JSON.stringify(schedaAllenamento));
-          const setEp = fn => setEditorPiano(p => fn(p || JSON.parse(JSON.stringify(piano))));
-          const setEs = fn => setEditorScheda(p => fn(p || JSON.parse(JSON.stringify(schedaAllenamento))));
-          return (
-            <div style={{ padding: "20px 16px 16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 400, color: "#1a1a1a" }}>Editor Piano</h1>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setEditorPiano(null); setEditorScheda(null); setEditorSaved(false); }}
-                    style={{ fontSize: 17, color: "#999", border: "0.5px solid #ddd", borderRadius: 10, padding: "10px 16px", background: "transparent", cursor: "pointer", ...f }}>Reset</button>
-                  <button onClick={() => { setPiano(ep); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }}
-                    style={{ fontSize: 17, color: "white", background: "#1D9E75", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", ...f }}>
-                    {editorSaved ? "✓ Salvato" : "Salva piano"}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 17, color: "#999", background: "#f9f9f6", borderRadius: 12, padding: "8px 12px", marginBottom: 16 }}>
-                Modalità editor — modifica liberamente il piano e la scheda esercizi. Clicca "Salva piano" per applicare le modifiche.
-              </div>
-
-              {/* ── FASI ── */}
-              <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a", marginBottom: 10 }}>Fasi del piano</div>
-              {ep.fasi?.map((fase, fi) => (
-                <div key={fi} style={{ background: "white", border: "0.5px solid #e0e0d8", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a" }}>Fase {fi + 1}</div>
-                    <button onClick={() => setEp(p => ({ ...p, fasi: p.fasi.filter((_, i) => i !== fi) }))}
-                      style={{ fontSize: 16, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕ Rimuovi</button>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    {[["Nome", "nome"], ["Settimane (es. 1-4)", "settimane"], ["Allenamenti/sett", "allenamenti_settimana"]].map(([label, key]) => (
-                      <div key={key} style={{ gridColumn: key === "nome" ? "span 2" : "auto" }}>
-                        <div style={{ fontSize: 12, color: "#999", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-                        <input
-                          type={key === "allenamenti_settimana" ? "number" : "text"}
-                          value={fase[key] || ""}
-                          onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x, i) => i === fi ? { ...x, [key]: key === "allenamenti_settimana" ? parseInt(e.target.value) || 0 : e.target.value } : x) }))}
-                          style={{ width: "100%", padding: "12px 14px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 15, background: "#f9f9f6", color: "#1a1a1a", outline: "none", boxSizing: "border-box", ...f }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: "#999", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>Note</div>
-                    <textarea value={fase.note || ""} onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x, i) => i === fi ? { ...x, note: e.target.value } : x) }))}
-                      rows={2} style={{ width: "100%", padding: "12px 14px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", resize: "none", boxSizing: "border-box", ...f }} />
-                  </div>
-                </div>
-              ))}
-              <button onClick={() => setEp(p => ({ ...p, fasi: [...(p.fasi || []), { numero: (p.fasi?.length || 0) + 1, nome: "", settimane: "", allenamenti_settimana: 3, note: "" }] }))}
-                style={{ width: "100%", padding: 9, border: "0.5px dashed #1D9E75", borderRadius: 10, background: "transparent", color: "#1D9E75", fontSize: 15, cursor: "pointer", marginBottom: 20, ...f }}>
-                + aggiungi fase
+  // ─── EDITOR TAB ──────────────────────────────────────────────────────────────
+  function TabEditor() {
+    const ep = editorPiano || JSON.parse(JSON.stringify(piano));
+    const es = editorScheda || JSON.parse(JSON.stringify(schedaAllenamento));
+    const setEp = fn => setEditorPiano(p => fn(p || JSON.parse(JSON.stringify(piano))));
+    const setEs = fn => setEditorScheda(p => fn(p || JSON.parse(JSON.stringify(schedaAllenamento))));
+    return (
+      <div style={S.page}>
+        <div style={{ background: C.card, padding: "56px 20px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ ...S.row }}>
+            <div style={T.title1}>Editor PT</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setEditorPiano(null); setEditorScheda(null); setEditorSaved(false); }} style={S.btnSmall(C.textTertiary)}>Reset</button>
+              <button onClick={() => { setPiano(ep); setSchedaAllenamento(es); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }} style={S.btnSmall(C.green)}>
+                {editorSaved ? "✓ Salvato" : "Salva"}
               </button>
-
-              {/* ── SCHEDE ESERCIZI ── */}
-              <div style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a", marginBottom: 10 }}>Schede esercizi</div>
-              {es.giorni_settimana?.map((scheda, si) => (
-                <div key={si} style={{ background: "white", border: "0.5px solid #e0e0d8", borderRadius: 12, padding: 14, marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <select value={scheda.tipo || "palestra"} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, tipo: e.target.value } : x) }))}
-                        style={{ padding: "4px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }}>
-                        <option value="palestra">Palestra</option>
-                        <option value="corsa">Corsa</option>
-                        <option value="extra">Extra</option>
-                      </select>
-                      <input value={scheda.titolo || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, titolo: e.target.value } : x) }))}
-                        placeholder="Titolo scheda" style={{ flex: 1, padding: "4px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", ...f }} />
-                    </div>
-                    <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.filter((_, i) => i !== si) }))}
-                      style={{ fontSize: 16, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", flexShrink: 0, marginLeft: 8, ...f }}>✕</button>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "16px 16px 0" }}>
+          <Section title="Fasi del piano">
+            {ep.fasi?.map((fase, fi) => (
+              <div key={fi} style={{ ...S.cardPad, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ ...S.row, marginBottom: 10 }}>
+                  <div style={T.headline}>Fase {fi+1}</div>
+                  <button onClick={() => setEp(p => ({ ...p, fasi: p.fasi.filter((_,i) => i !== fi) }))} style={S.btnSmall(C.red)}>Rimuovi</button>
+                </div>
+                <input value={fase.nome || ""} onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x,i) => i===fi ? {...x,nome:e.target.value} : x) }))} placeholder="Nome fase" style={{ ...S.input, marginBottom: 10 }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                  <input value={fase.settimane || ""} onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x,i) => i===fi ? {...x,settimane:e.target.value} : x) }))} placeholder="Settimane (es. 1-4)" style={S.input} />
+                  <input type="number" value={fase.allenamenti_settimana || ""} onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x,i) => i===fi ? {...x,allenamenti_settimana:parseInt(e.target.value)||0} : x) }))} placeholder="Sessioni/sett" style={S.input} />
+                </div>
+                <textarea value={fase.note || ""} onChange={e => setEp(p => ({ ...p, fasi: p.fasi.map((x,i) => i===fi ? {...x,note:e.target.value} : x) }))} placeholder="Note" rows={2} style={{ ...S.input, resize: "none" }} />
+              </div>
+            ))}
+            <div style={S.cardPad}>
+              <button onClick={() => setEp(p => ({ ...p, fasi: [...(p.fasi||[]), { numero:(p.fasi?.length||0)+1, nome:"", settimane:"", allenamenti_settimana:3, note:"" }] }))} style={S.btnOutline(C.green)}>+ Aggiungi fase</button>
+            </div>
+          </Section>
+          <Section title="Schede esercizi">
+            {es.giorni_settimana?.map((scheda, si) => (
+              <div key={si} style={{ borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ ...S.cardPad }}>
+                  <div style={{ ...S.row, marginBottom: 10 }}>
+                    <select value={scheda.tipo || "palestra"} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,tipo:e.target.value} : x) }))} style={{ ...S.input, width: "auto", flex: 1, marginRight: 10 }}>
+                      <option value="palestra">Palestra</option>
+                      <option value="corsa">Corsa</option>
+                    </select>
+                    <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.filter((_,i) => i!==si) }))} style={S.btnSmall(C.red)}>✕</button>
                   </div>
-                  <textarea value={scheda.descrizione || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, descrizione: e.target.value } : x) }))}
-                    placeholder="Descrizione sessione..." rows={2}
-                    style={{ width: "100%", padding: "12px 14px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 17, background: "#f9f9f6", color: "#1a1a1a", outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 10, ...f }} />
-
-                  {/* Esercizi */}
+                  <input value={scheda.titolo || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,titolo:e.target.value} : x) }))} placeholder="Titolo scheda" style={{ ...S.input, marginBottom: 10 }} />
                   {scheda.esercizi?.map((ex, ei) => (
-                    <div key={ei} style={{ background: "#f9f9f6", borderRadius: 12, padding: 10, marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div style={{ fontSize: 16, color: "#999" }}>Esercizio {ei + 1}</div>
-                        <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.filter((_, j) => j !== ei) } : x) }))}
-                          style={{ fontSize: 12, color: "#E24B4A", background: "transparent", border: "none", cursor: "pointer", ...f }}>✕</button>
+                    <div key={ei} style={{ background: C.bg, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                      <div style={{ ...S.row, marginBottom: 8 }}>
+                        <span style={T.footnote}>Esercizio {ei+1}</span>
+                        <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,esercizi:x.esercizi.filter((_,j) => j!==ei)} : x) }))} style={S.btnSmall(C.red)}>✕</button>
                       </div>
-                      <input value={ex.nome || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.map((z, j) => j === ei ? { ...z, nome: e.target.value } : z) } : x) }))}
-                        placeholder="Nome esercizio"
-                        style={{ width: "100%", padding: "5px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 15, background: "white", color: "#1a1a1a", outline: "none", marginBottom: 10, boxSizing: "border-box", ...f }} />
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 6 }}>
-                        {[["Serie","serie"],["Ripetizioni","ripetizioni"],["Rec. (s)","recupero_secondi"]].map(([label, key]) => (
-                          <div key={key} style={{ gridColumn: key === "ripetizioni" ? "span 2" : "auto" }}>
-                            <div style={{ fontSize: 12, color: "#999", marginBottom: 2 }}>{label}</div>
-                            <input type={key === "serie" || key === "recupero_secondi" ? "number" : "text"} value={ex[key] || ""}
-                              onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.map((z, j) => j === ei ? { ...z, [key]: key === "serie" || key === "recupero_secondi" ? parseInt(e.target.value) || 0 : e.target.value } : z) } : x) }))}
-                              style={{ width: "100%", padding: "4px 6px", border: "0.5px solid #e0e0d8", borderRadius: 5, fontSize: 17, background: "white", color: "#1a1a1a", outline: "none", ...f }} />
+                      <input value={ex.nome || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,esercizi:x.esercizi.map((z,j) => j===ei ? {...z,nome:e.target.value} : z)} : x) }))} placeholder="Nome esercizio" style={{ ...S.input, marginBottom: 8 }} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: 8 }}>
+                        {[["Serie","serie","number"],["Ripetizioni","ripetizioni","text"],["Rec(s)","recupero_secondi","number"]].map(([lbl, k, t]) => (
+                          <div key={k}>
+                            <div style={T.caption}>{lbl}</div>
+                            <input type={t} value={ex[k] || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,esercizi:x.esercizi.map((z,j) => j===ei ? {...z,[k]: t==="number"?parseInt(e.target.value)||0:e.target.value} : z)} : x) }))} style={{ ...S.input, padding: "10px 10px" }} />
                           </div>
                         ))}
                       </div>
-                      <textarea value={ex.note_tecniche || ""} onChange={e => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: x.esercizi.map((z, j) => j === ei ? { ...z, note_tecniche: e.target.value } : z) } : x) }))}
-                        placeholder="Note tecniche..." rows={2}
-                        style={{ width: "100%", padding: "5px 8px", border: "0.5px solid #e0e0d8", borderRadius: 10, fontSize: 16, background: "white", color: "#1a1a1a", outline: "none", resize: "none", boxSizing: "border-box", ...f }} />
                     </div>
                   ))}
-                  <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x, i) => i === si ? { ...x, esercizi: [...(x.esercizi || []), { nome: "", serie: 3, ripetizioni: "10-12", recupero_secondi: 90, note_tecniche: "" }] } : x) }))}
-                    style={{ width: "100%", padding: 7, border: "0.5px dashed #1D9E75", borderRadius: 12, background: "transparent", color: "#1D9E75", fontSize: 17, cursor: "pointer", ...f }}>
-                    + aggiungi esercizio
-                  </button>
+                  <button onClick={() => setEs(p => ({ ...p, giorni_settimana: p.giorni_settimana.map((x,i) => i===si ? {...x,esercizi:[...(x.esercizi||[]),{nome:"",serie:3,ripetizioni:"10-12",recupero_secondi:90,note_tecniche:""}]} : x) }))} style={S.btnOutline(C.green)}>+ Esercizio</button>
                 </div>
-              ))}
-              <button onClick={() => setEs(p => ({ ...p, giorni_settimana: [...(p.giorni_settimana || []), { tipo: "palestra", titolo: "", descrizione: "", esercizi: [] }] }))}
-                style={{ width: "100%", padding: 9, border: "0.5px dashed #ccc", borderRadius: 10, background: "transparent", color: "#999", fontSize: 15, cursor: "pointer", marginBottom: 20, ...f }}>
-                + aggiungi scheda
-              </button>
-
-              {/* Salva in fondo */}
-              <button onClick={() => { setPiano(ep); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }}
-                style={{ width: "100%", padding: 12, background: "#1a1a1a", border: "none", borderRadius: 10, color: "white", fontSize: 16, cursor: "pointer", ...f }}>
-                {editorSaved ? "✓ Piano salvato" : "Salva piano"}
-              </button>
+              </div>
+            ))}
+            <div style={S.cardPad}>
+              <button onClick={() => setEs(p => ({ ...p, giorni_settimana: [...(p.giorni_settimana||[]), {tipo:"palestra",titolo:"",descrizione:"",esercizi:[]}] }))} style={S.btnOutline(C.textSecondary)}>+ Aggiungi scheda</button>
             </div>
-          );
-        })()}
+          </Section>
+          <div style={{ padding: "0 0 16px" }}>
+            <button onClick={() => { setPiano(ep); setSchedaAllenamento(es); setEditorSaved(true); setTimeout(() => setEditorSaved(false), 2000); }} style={S.btn(C.text)}>
+              {editorSaved ? "✓ Piano salvato" : "Salva piano completo"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Nav */}
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 420, background: "white", borderTop: "0.5px solid #e0e0d8", display: "flex", justifyContent: "space-around", padding: "10px 0 14px" }}>
-        {[{ id: "profilo", label: "Profilo" }, { id: "dieta", label: "Dieta" }, { id: "allenamento", label: "Allenamento" }, { id: "mente", label: "Mente" }, { id: "editor", label: "Editor" }].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "0 12px" }}>
-            <div style={{ width: 20, height: 3, borderRadius: 2, background: activeTab === tab.id ? "#1D9E75" : "transparent", transition: "background 0.2s" }} />
-            <span style={{ fontSize: 17, color: activeTab === tab.id ? "#1D9E75" : "#999", fontWeight: activeTab === tab.id ? 500 : 400, ...f }}>{tab.label}</span>
+  // ─── NAV + RENDER ────────────────────────────────────────────────────────────
+  const TABS = [
+    { id: "profilo", label: "Profilo", icon: "👤" },
+    { id: "dieta", label: "Dieta", icon: "🥗" },
+    { id: "allenamento", label: "Training", icon: "🏋" },
+    { id: "editor", label: "Editor", icon: "✏️" },
+  ];
+
+  return (
+    <div style={{ background: C.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif", maxWidth: 480, margin: "0 auto", minHeight: "100vh", position: "relative" }}>
+      {activeTab === "profilo" && <TabProfilo />}
+      {activeTab === "dieta" && <TabDieta />}
+      {activeTab === "allenamento" && <TabAllenamento />}
+      {activeTab === "editor" && <TabEditor />}
+
+      {/* Tab bar */}
+      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.nav, borderTop: `1px solid ${C.border}`, display: "flex", paddingBottom: "env(safe-area-inset-bottom, 8px)", zIndex: 100 }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flex: 1, background: "transparent", border: "none", padding: "8px 0 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+            <span style={{ fontSize: 24 }}>{tab.icon}</span>
+            <span style={{ fontSize: 10, fontWeight: activeTab === tab.id ? 700 : 400, color: activeTab === tab.id ? C.green : C.textTertiary, letterSpacing: 0.2 }}>{tab.label}</span>
           </button>
         ))}
       </div>
     </div>
   );
 }
+
+export default App;
