@@ -144,6 +144,55 @@ const MOTIVATIONAL_QUOTES = [
   { text: "La forza non viene dal corpo. Viene dalla volontà.", author: "Gandhi" },
 ];
 
+
+// Componente isolato per risultato alimento — ha il suo stato locale
+// così i re-render del parent non resettano i campi mentre si digita
+function FoodResultItem({ food, C, T, S, onAdd }) {
+  const [editing, setEditing] = React.useState(false);
+  const [vals, setVals] = React.useState({ ...food });
+  return (
+    <div style={{ background: C.bg, borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+      <div style={{ padding: "12px 12px 10px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+          <div style={{ ...T.body, flex: 1, lineHeight: 1.3 }}>{food.nome}</div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <button onClick={() => setEditing(e => !e)}
+              style={{ background: C.blue + "18", color: C.blue, border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 14, cursor: "pointer", minHeight: 34 }}>
+              {editing ? "✕" : "✏️"}
+            </button>
+            <button onClick={() => onAdd(vals)}
+              style={{ background: C.green, color: "white", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 14, fontWeight: 600, cursor: "pointer", minHeight: 34 }}>
+              + Aggiungi
+            </button>
+          </div>
+        </div>
+        {editing ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+            {[["kcal","calorie",C.orange],["P g","proteine_g",C.blue],["C g","carboidrati_g",C.orange],["G g","grassi_g",C.red]].map(([lbl,k,col]) => (
+              <div key={k}>
+                <div style={{ fontSize: 11, color: col, marginBottom: 3, fontWeight: 500 }}>{lbl}</div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={vals[k]}
+                  onChange={e => setVals(prev => ({ ...prev, [k]: parseFloat(e.target.value) || 0 }))}
+                  style={{ width: "100%", padding: "8px 6px", border: "1.5px solid #E5E5EA", borderRadius: 10, fontSize: 16, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 14 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.orange }}>{vals.calorie} kcal</span>
+            <span style={{ fontSize: 14, color: C.blue }}>P {vals.proteine_g}g</span>
+            <span style={{ fontSize: 14, color: C.orange }}>C {vals.carboidrati_g}g</span>
+            <span style={{ fontSize: 14, color: C.red }}>G {vals.grassi_g}g</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const f = { fontFamily: "Georgia, serif" };
   const [activeTab, setActiveTab] = useState("profilo");
@@ -189,7 +238,6 @@ export default function App() {
   const [foodLoading, setFoodLoading] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [photoMode, setPhotoMode] = useState(null); // "camera" | "gallery"
-  const [editingResult, setEditingResult] = useState(null); // {index, food}
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -951,56 +999,11 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       </div>
                     )}
 
-                    {/* Risultati con editing */}
-                    {!foodLoading && foodResults.map((food, i) => {
-                      const isEditing = editingResult?.index === i;
-                      const ef = isEditing ? editingResult.food : food;
-                      return (
-                        <div key={i} style={{ background: C.bg, borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
-                          {/* Riga nome + bottoni */}
-                          <div style={{ ...S.cardPad, paddingBottom: 8 }}>
-                            <div style={{ ...S.row, marginBottom: 6 }}>
-                              <div style={{ ...T.body, flex: 1 }}>{food.nome}</div>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => setEditingResult(isEditing ? null : { index: i, food: { ...food } })}
-                                  style={{ ...S.btnSmall(C.blue), minHeight: 32, padding: "4px 10px" }}>
-                                  {isEditing ? "✕" : "✏️"}
-                                </button>
-                                <button onClick={() => { addFood(meal, ef); setEditingResult(null); setFoodResults([]); }}
-                                  style={{ ...S.btnSmall(C.green), minHeight: 32, padding: "4px 10px" }}>
-                                  + Aggiungi
-                                </button>
-                              </div>
-                            </div>
-                            {/* Valori — editabili o sola lettura */}
-                            {isEditing ? (
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }} onClick={e => e.stopPropagation()}>
-                                {[["kcal","calorie",C.orange],["P g","proteine_g",C.blue],["C g","carboidrati_g",C.orange],["G g","grassi_g",C.red]].map(([lbl,k,col]) => (
-                                  <div key={k}>
-                                    <div style={{ ...T.caption, color: col, marginBottom: 2 }}>{lbl}</div>
-                                    <input
-                                      type="number"
-                                      inputMode="decimal"
-                                      defaultValue={ef[k]}
-                                      onBlur={e => setEditingResult(prev => prev ? { ...prev, food: { ...prev.food, [k]: parseFloat(e.target.value)||0 } } : null)}
-                                      onFocus={e => { e.stopPropagation(); e.target.select(); }}
-                                      onClick={e => e.stopPropagation()}
-                                      style={{ ...S.input, padding: "6px 8px", fontSize: 15, textAlign: "center" }} />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={{ display: "flex", gap: 12 }}>
-                                <span style={{ ...T.footnote, fontWeight: 600, color: C.orange }}>{food.calorie} kcal</span>
-                                <span style={{ ...T.footnote, color: C.blue }}>P {food.proteine_g}g</span>
-                                <span style={{ ...T.footnote, color: C.orange }}>C {food.carboidrati_g}g</span>
-                                <span style={{ ...T.footnote, color: C.red }}>G {food.grassi_g}g</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {/* Risultati con editing — componente isolato per evitare re-render */}
+                    {!foodLoading && foodResults.map((food, i) => (
+                      <FoodResultItem key={i} food={food} C={C} T={T} S={S}
+                        onAdd={f => { addFood(meal, f); setFoodResults([]); }} />
+                    ))}
                   </div>
                 )}
               </div>
