@@ -145,47 +145,67 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 
-// Componente isolato per risultato alimento — ha il suo stato locale
-// così i re-render del parent non resettano i campi mentre si digita
-function FoodResultItem({ food, C, T, S, onAdd }) {
+// FoodResultItem — usa ref per i campi numerici
+// I ref non causano re-render durante la digitazione → tastiera stabile su iOS
+function FoodResultItem({ food, C, onAdd }) {
   const [editing, setEditing] = React.useState(false);
-  const [vals, setVals] = React.useState({ ...food });
+  const refs = {
+    calorie: React.useRef(null),
+    proteine_g: React.useRef(null),
+    carboidrati_g: React.useRef(null),
+    grassi_g: React.useRef(null),
+  };
+
+  function handleAdd() {
+    if (editing) {
+      onAdd({
+        ...food,
+        calorie: parseFloat(refs.calorie.current?.value) || food.calorie,
+        proteine_g: parseFloat(refs.proteine_g.current?.value) || food.proteine_g,
+        carboidrati_g: parseFloat(refs.carboidrati_g.current?.value) || food.carboidrati_g,
+        grassi_g: parseFloat(refs.grassi_g.current?.value) || food.grassi_g,
+      });
+    } else {
+      onAdd(food);
+    }
+  }
+
   return (
-    <div style={{ background: C.bg, borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+    <div style={{ background: "#F2F2F7", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
       <div style={{ padding: "12px 12px 10px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
-          <div style={{ ...T.body, flex: 1, lineHeight: 1.3 }}>{food.nome}</div>
+          <div style={{ fontSize: 17, color: "#1C1C1E", flex: 1, lineHeight: 1.3 }}>{food.nome}</div>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
             <button onClick={() => setEditing(e => !e)}
-              style={{ background: C.blue + "18", color: C.blue, border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 14, cursor: "pointer", minHeight: 34 }}>
+              style={{ background: "#2563EB18", color: "#2563EB", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 15, cursor: "pointer", minHeight: 36 }}>
               {editing ? "✕" : "✏️"}
             </button>
-            <button onClick={() => onAdd(vals)}
-              style={{ background: C.green, color: "white", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 14, fontWeight: 600, cursor: "pointer", minHeight: 34 }}>
+            <button onClick={handleAdd}
+              style={{ background: "#1DB954", color: "white", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 15, fontWeight: 600, cursor: "pointer", minHeight: 36 }}>
               + Aggiungi
             </button>
           </div>
         </div>
         {editing ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-            {[["kcal","calorie",C.orange],["P g","proteine_g",C.blue],["C g","carboidrati_g",C.orange],["G g","grassi_g",C.red]].map(([lbl,k,col]) => (
+            {[["kcal","calorie","#F59E0B"],["P g","proteine_g","#2563EB"],["C g","carboidrati_g","#F59E0B"],["G g","grassi_g","#EF4444"]].map(([lbl,k,col]) => (
               <div key={k}>
-                <div style={{ fontSize: 11, color: col, marginBottom: 3, fontWeight: 500 }}>{lbl}</div>
+                <div style={{ fontSize: 11, color: col, marginBottom: 3, fontWeight: 600, textTransform: "uppercase" }}>{lbl}</div>
                 <input
+                  ref={refs[k]}
                   type="number"
                   inputMode="decimal"
-                  value={vals[k]}
-                  onChange={e => setVals(prev => ({ ...prev, [k]: parseFloat(e.target.value) || 0 }))}
-                  style={{ width: "100%", padding: "8px 6px", border: "1.5px solid #E5E5EA", borderRadius: 10, fontSize: 16, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
+                  defaultValue={food[k]}
+                  style={{ width: "100%", padding: "8px 4px", border: "1.5px solid #E5E5EA", borderRadius: 10, fontSize: 17, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
               </div>
             ))}
           </div>
         ) : (
           <div style={{ display: "flex", gap: 14 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.orange }}>{vals.calorie} kcal</span>
-            <span style={{ fontSize: 14, color: C.blue }}>P {vals.proteine_g}g</span>
-            <span style={{ fontSize: 14, color: C.orange }}>C {vals.carboidrati_g}g</span>
-            <span style={{ fontSize: 14, color: C.red }}>G {vals.grassi_g}g</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
+            <span style={{ fontSize: 14, color: "#2563EB" }}>P {food.proteine_g}g</span>
+            <span style={{ fontSize: 14, color: "#F59E0B" }}>C {food.carboidrati_g}g</span>
+            <span style={{ fontSize: 14, color: "#EF4444" }}>G {food.grassi_g}g</span>
           </div>
         )}
       </div>
