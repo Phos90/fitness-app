@@ -1172,4 +1172,3 @@ Dai 2-3 varianti realistiche (es. porzione piccola, media, grande). Valori rifer
   );
 }
 
-export default App;
