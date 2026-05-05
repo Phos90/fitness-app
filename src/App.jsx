@@ -189,6 +189,7 @@ export default function App() {
   const [foodLoading, setFoodLoading] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [photoMode, setPhotoMode] = useState(null); // "camera" | "gallery"
+  const [editingResult, setEditingResult] = useState(null); // {index, food}
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -441,8 +442,13 @@ Cosa mi suggerisci per la prossima sessione?`
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 300,
-          messages: [{ role: "user", content: `Valori nutrizionali esatti per: "${query}". Se è un prodotto specifico con etichetta (es. "Fage 0% 150g"), dai UN solo risultato preciso. Se è un alimento generico senza quantità (es. "pollo"), dai 2 varianti con porzioni tipiche. Rispondi SOLO con JSON array:
-[{"nome":"nome con quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
+          messages: [{ role: "user", content: `Valori nutrizionali per: "${query}".
+REGOLA: trova sempre i valori per 100g del prodotto, poi proporziona alla quantità specificata.
+Esempio: "yogurt Fage 0% 150g" → trova valori x100g (es. 57kcal, P10g, C3.7g, G0g) → moltiplica x1.5 → risultato: 85kcal, P15g, C5.5g, G0g.
+Esempio: "petto di pollo 200g" → valori x100g poi x2.
+Se nessun peso specificato → usa porzione tipica standard.
+Rispondi SOLO con JSON array puro, zero testo:
+[{"nome":"nome prodotto + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
       });
       const result = await res.json();
@@ -477,8 +483,8 @@ Cosa mi suggerisci per la prossima sessione?`
             content: [
               { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
               { type: "text", text: `Analizza questa immagine.
-- Se è un'ETICHETTA nutrizionale: leggi i valori esatti scritti sull'etichetta (kcal, proteine, carboidrati, grassi per 100g o per porzione).
-- Se è un ALIMENTO o piatto: riconosci cosa è e stima i macro per la porzione visibile.
+- Se è un'ETICHETTA nutrizionale: leggi i valori per 100g indicati e proporzionali alla porzione/quantità del prodotto se visibile (es. vasetto 150g → moltiplica x1.5). Se non vedi la quantità totale, riporta i valori per 100g indicando "per 100g" nel nome.
+- Se è un ALIMENTO o piatto: riconosci cosa è, stima il peso visivo e calcola i macro per QUELLA quantità stimata.
 Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
 [{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }
             ]
@@ -943,18 +949,50 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       </div>
                     )}
 
-                    {/* Risultati */}
-                    {!foodLoading && foodResults.map((food, i) => (
-                      <div key={i} onClick={() => addFood(meal, food)} style={{ ...S.cardPad, background: C.bg, borderRadius: 12, marginBottom: 8, cursor: "pointer" }}>
-                        <div style={T.body}>{food.nome}</div>
-                        <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-                          <span style={{ ...T.footnote, fontWeight: 600, color: C.orange }}>{food.calorie} kcal</span>
-                          <span style={{ ...T.footnote, color: C.blue }}>P {food.proteine_g}g</span>
-                          <span style={{ ...T.footnote, color: C.orange }}>C {food.carboidrati_g}g</span>
-                          <span style={{ ...T.footnote, color: C.red }}>G {food.grassi_g}g</span>
+                    {/* Risultati con editing */}
+                    {!foodLoading && foodResults.map((food, i) => {
+                      const isEditing = editingResult?.index === i;
+                      const ef = isEditing ? editingResult.food : food;
+                      return (
+                        <div key={i} style={{ background: C.bg, borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+                          {/* Riga nome + bottoni */}
+                          <div style={{ ...S.cardPad, paddingBottom: 8 }}>
+                            <div style={{ ...S.row, marginBottom: 6 }}>
+                              <div style={{ ...T.body, flex: 1 }}>{food.nome}</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => setEditingResult(isEditing ? null : { index: i, food: { ...food } })}
+                                  style={{ ...S.btnSmall(C.blue), minHeight: 32, padding: "4px 10px" }}>
+                                  {isEditing ? "✕" : "✏️"}
+                                </button>
+                                <button onClick={() => { addFood(meal, ef); setEditingResult(null); setFoodResults([]); }}
+                                  style={{ ...S.btnSmall(C.green), minHeight: 32, padding: "4px 10px" }}>
+                                  + Aggiungi
+                                </button>
+                              </div>
+                            </div>
+                            {/* Valori — editabili o sola lettura */}
+                            {isEditing ? (
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                                {[["kcal","calorie",C.orange],["P g","proteine_g",C.blue],["C g","carboidrati_g",C.orange],["G g","grassi_g",C.red]].map(([lbl,k,col]) => (
+                                  <div key={k}>
+                                    <div style={{ ...T.caption, color: col, marginBottom: 2 }}>{lbl}</div>
+                                    <input type="number" value={ef[k]} onChange={e => setEditingResult(prev => ({ ...prev, food: { ...prev.food, [k]: parseFloat(e.target.value)||0 } }))}
+                                      style={{ ...S.input, padding: "6px 8px", fontSize: 15, textAlign: "center" }} />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: 12 }}>
+                                <span style={{ ...T.footnote, fontWeight: 600, color: C.orange }}>{food.calorie} kcal</span>
+                                <span style={{ ...T.footnote, color: C.blue }}>P {food.proteine_g}g</span>
+                                <span style={{ ...T.footnote, color: C.orange }}>C {food.carboidrati_g}g</span>
+                                <span style={{ ...T.footnote, color: C.red }}>G {food.grassi_g}g</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
