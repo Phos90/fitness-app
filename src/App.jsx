@@ -443,12 +443,14 @@ Cosa mi suggerisci per la prossima sessione?`
           model: "claude-sonnet-4-6",
           max_tokens: 300,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}".
-REGOLA: trova sempre i valori per 100g del prodotto, poi proporziona alla quantità specificata.
-Esempio: "yogurt Fage 0% 150g" → trova valori x100g (es. 57kcal, P10g, C3.7g, G0g) → moltiplica x1.5 → risultato: 85kcal, P15g, C5.5g, G0g.
-Esempio: "petto di pollo 200g" → valori x100g poi x2.
-Se nessun peso specificato → usa porzione tipica standard.
-Rispondi SOLO con JSON array puro, zero testo:
-[{"nome":"nome prodotto + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
+STEP 1: estrai la quantità in grammi dalla query (es. "150g" → 150, "200g" → 200). Se non c'è quantità usa 100.
+STEP 2: trova i valori nutrizionali per 100g del prodotto.
+STEP 3: moltiplica ogni valore per (quantità/100) e arrotonda.
+ESEMPIO: "yogurt Fage 0% 150g" → per 100g: 57kcal P10.3g C3.7g G0g → x1.5 → 86kcal P15.5g C5.6g G0g
+I valori nel JSON devono essere già moltiplicati per la quantità specificata, MAI per 100g.
+Se nessun peso specificato → usa porzione tipica (es. 100g o 1 unità standard).
+Rispondi SOLO con JSON array puro, zero testo, zero backtick:
+[{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
       });
       const result = await res.json();
@@ -932,7 +934,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                     {!photoMode && (
                       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                         <input value={foodSearch} onChange={e => setFoodSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && searchFood(foodSearch)}
-                          placeholder="Es. petto di pollo 150g" style={{ ...S.input, flex: 1 }} autoFocus />
+                          placeholder="Es. petto di pollo 150g" style={{ ...S.input, flex: 1 }} />
                         <button onClick={() => searchFood(foodSearch)} style={{ ...S.btn(C.green), width: "auto", padding: "0 20px" }}>
                           {foodLoading ? "..." : "Cerca"}
                         </button>
@@ -972,11 +974,17 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                             </div>
                             {/* Valori — editabili o sola lettura */}
                             {isEditing ? (
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }} onClick={e => e.stopPropagation()}>
                                 {[["kcal","calorie",C.orange],["P g","proteine_g",C.blue],["C g","carboidrati_g",C.orange],["G g","grassi_g",C.red]].map(([lbl,k,col]) => (
                                   <div key={k}>
                                     <div style={{ ...T.caption, color: col, marginBottom: 2 }}>{lbl}</div>
-                                    <input type="number" value={ef[k]} onChange={e => setEditingResult(prev => ({ ...prev, food: { ...prev.food, [k]: parseFloat(e.target.value)||0 } }))}
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      defaultValue={ef[k]}
+                                      onBlur={e => setEditingResult(prev => prev ? { ...prev, food: { ...prev.food, [k]: parseFloat(e.target.value)||0 } } : null)}
+                                      onFocus={e => { e.stopPropagation(); e.target.select(); }}
+                                      onClick={e => e.stopPropagation()}
                                       style={{ ...S.input, padding: "6px 8px", fontSize: 15, textAlign: "center" }} />
                                   </div>
                                 ))}
