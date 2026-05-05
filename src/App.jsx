@@ -907,9 +907,9 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
 
                     {/* Input nascosti per foto */}
                     <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) searchFoodByPhoto(f, meal); e.target.value = ""; }} />
+                      onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoMode(null); searchFoodByPhoto(f, meal); } }} />
                     <input ref={galleryInputRef} type="file" accept="image/*" style={{ display: "none" }}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) searchFoodByPhoto(f, meal); e.target.value = ""; }} />
+                      onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoMode(null); searchFoodByPhoto(f, meal); } }} />
 
                     {/* Campo testo */}
                     {!photoMode && (
