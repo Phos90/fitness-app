@@ -459,35 +459,41 @@ Cosa mi suggerisci per la prossima sessione?`
     setFoodLoading(true);
     setFoodResults([]);
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target.result.split(",")[1];
-        const mediaType = file.type || "image/jpeg";
-        const res = await fetch("/api/claude", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 1000,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-                { type: "text", text: `Analizza questa immagine. Se è un alimento o un piatto, riconosci cosa è e stima i valori nutrizionali. Se è un'etichetta nutrizionale, leggi i valori esatti. Rispondi SOLO con questo JSON array senza nulla prima o dopo:
-[{"nome":"nome preciso con quantità stimata","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]
-Dai 2-3 varianti realistiche (es. porzione piccola, media, grande). Valori riferiti alla quantità stimata visivamente.` }
-              ]
-            }]
-          })
-        });
-        const result = await res.json();
-        const text = result.content?.map(c => c.text || "").join("") || "";
-        setFoodResults(JSON.parse(text.replace(/```json|```/g, "").trim()));
-        setFoodLoading(false);
-      };
-      reader.readAsDataURL(file);
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const mediaType = file.type?.startsWith("image/") ? file.type : "image/jpeg";
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 800,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+              { type: "text", text: `Analizza questa immagine.
+- Se è un'ETICHETTA nutrizionale: leggi i valori esatti scritti sull'etichetta (kcal, proteine, carboidrati, grassi per 100g o per porzione).
+- Se è un ALIMENTO o piatto: riconosci cosa è e stima i macro per la porzione visibile.
+Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
+[{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }
+            ]
+          }]
+        })
+      });
+      const result = await res.json();
+      const text = result.content?.map(c => c.text || "").join("") || "";
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (parsed.length === 0) throw new Error("empty");
+      setFoodResults(parsed);
     } catch (e) {
-      setFoodResults([{ nome: "Errore nel riconoscimento", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
+      setFoodResults([{ nome: "❌ Impossibile riconoscere — riprova con foto più nitida", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
+    } finally {
       setFoodLoading(false);
     }
   }
