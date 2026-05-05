@@ -501,6 +501,26 @@ Dai 2-3 varianti realistiche (es. porzione piccola, media, grande). Valori rifer
 
 ;
 
+  // ─── DESIGN SYSTEM ──────────────────────────────────────────────────────────
+  const C = {
+    green: "#1DB954",
+    greenLight: "#E8F8EF",
+    greenDark: "#0E8C3C",
+    blue: "#2563EB",
+    blueLight: "#EFF6FF",
+    orange: "#F59E0B",
+    orangeLight: "#FFFBEB",
+    red: "#EF4444",
+    redLight: "#FEF2F2",
+    bg: "#F2F2F7",
+    card: "#FFFFFF",
+    text: "#1C1C1E",
+    textSecondary: "#6C6C70",
+    textTertiary: "#AEAEB2",
+    border: "#E5E5EA",
+    nav: "#FFFFFF",
+  };
+
   const T = {
     title1: { fontSize: 28, fontWeight: 700, color: C.text, letterSpacing: -0.5 },
     title2: { fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: -0.3 },
