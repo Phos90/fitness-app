@@ -145,69 +145,24 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 
-// FoodResultItem — usa ref per i campi numerici
-// I ref non causano re-render durante la digitazione → tastiera stabile su iOS
-function FoodResultItem({ food, C, onAdd }) {
-  const [editing, setEditing] = React.useState(false);
-  const refs = {
-    calorie: React.useRef(null),
-    proteine_g: React.useRef(null),
-    carboidrati_g: React.useRef(null),
-    grassi_g: React.useRef(null),
-  };
-
-  function handleAdd() {
-    if (editing) {
-      onAdd({
-        ...food,
-        calorie: parseFloat(refs.calorie.current?.value) || food.calorie,
-        proteine_g: parseFloat(refs.proteine_g.current?.value) || food.proteine_g,
-        carboidrati_g: parseFloat(refs.carboidrati_g.current?.value) || food.carboidrati_g,
-        grassi_g: parseFloat(refs.grassi_g.current?.value) || food.grassi_g,
-      });
-    } else {
-      onAdd(food);
-    }
-  }
-
+// FoodResultItem semplice — niente editing inline, solo mostra + aggiungi/modifica
+function FoodResultItem({ food, onAdd, onEdit }) {
   return (
-    <div style={{ background: "#F2F2F7", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
-      <div style={{ padding: "12px 12px 10px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
-          <div style={{ fontSize: 17, color: "#1C1C1E", flex: 1, lineHeight: 1.3 }}>{food.nome}</div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button onClick={() => setEditing(e => !e)}
-              style={{ background: "#2563EB18", color: "#2563EB", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 15, cursor: "pointer", minHeight: 36 }}>
-              {editing ? "✕" : "✏️"}
-            </button>
-            <button onClick={handleAdd}
-              style={{ background: "#1DB954", color: "white", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 15, fontWeight: 600, cursor: "pointer", minHeight: 36 }}>
-              + Aggiungi
-            </button>
-          </div>
+    <div style={{ background: "#F2F2F7", borderRadius: 12, marginBottom: 8, padding: "12px 12px 10px" }}>
+      <div style={{ fontSize: 17, color: "#1C1C1E", marginBottom: 6, lineHeight: 1.3 }}>{food.nome}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
+          <span style={{ fontSize: 14, color: "#2563EB" }}>P {food.proteine_g}g</span>
+          <span style={{ fontSize: 14, color: "#F59E0B" }}>C {food.carboidrati_g}g</span>
+          <span style={{ fontSize: 14, color: "#EF4444" }}>G {food.grassi_g}g</span>
         </div>
-        {editing ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-            {[["kcal","calorie","#F59E0B"],["P g","proteine_g","#2563EB"],["C g","carboidrati_g","#F59E0B"],["G g","grassi_g","#EF4444"]].map(([lbl,k,col]) => (
-              <div key={k}>
-                <div style={{ fontSize: 11, color: col, marginBottom: 3, fontWeight: 600, textTransform: "uppercase" }}>{lbl}</div>
-                <input
-                  ref={refs[k]}
-                  type="number"
-                  inputMode="decimal"
-                  defaultValue={food[k]}
-                  style={{ width: "100%", padding: "8px 4px", border: "1.5px solid #E5E5EA", borderRadius: 10, fontSize: 17, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 14 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
-            <span style={{ fontSize: 14, color: "#2563EB" }}>P {food.proteine_g}g</span>
-            <span style={{ fontSize: 14, color: "#F59E0B" }}>C {food.carboidrati_g}g</span>
-            <span style={{ fontSize: 14, color: "#EF4444" }}>G {food.grassi_g}g</span>
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => onEdit(food)}
+            style={{ background: "#2563EB18", color: "#2563EB", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 15, cursor: "pointer", minHeight: 36 }}>✏️</button>
+          <button onClick={() => onAdd(food)}
+            style={{ background: "#1DB954", color: "white", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 15, fontWeight: 600, cursor: "pointer", minHeight: 36 }}>+</button>
+        </div>
       </div>
     </div>
   );
@@ -257,7 +212,8 @@ export default function App() {
   const [foodResults, setFoodResults] = useState([]);
   const [foodLoading, setFoodLoading] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
-  const [photoMode, setPhotoMode] = useState(null); // "camera" | "gallery"
+  const [photoMode, setPhotoMode] = useState(null);
+  const [confirmFood, setConfirmFood] = useState(null); // {meal, food}
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -1019,16 +975,62 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       </div>
                     )}
 
-                    {/* Risultati con editing — componente isolato per evitare re-render */}
+                    {/* Risultati */}
                     {!foodLoading && foodResults.map((food, i) => (
-                      <FoodResultItem key={i} food={food} C={C} T={T} S={S}
-                        onAdd={f => { addFood(meal, f); setFoodResults([]); }} />
+                      <FoodResultItem key={i} food={food}
+                        onAdd={f => { addFood(meal, f); setFoodResults([]); setAddingMeal(null); }}
+                        onEdit={f => setConfirmFood({ meal, food: { ...f } })} />
                     ))}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── CONFIRM FOOD MODAL ─────────────────────────────────────────────────────
+  function ConfirmFoodModal() {
+    if (!confirmFood) return null;
+    const f = confirmFood.food;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
+        <div style={{ background: "white", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
+          <div style={{ fontSize: 13, color: "#AEAEB2", textAlign: "center", marginBottom: 16 }}>Conferma alimento</div>
+          <div style={{ fontSize: 19, fontWeight: 600, color: "#1C1C1E", marginBottom: 20, lineHeight: 1.3 }}>{f.nome}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+            {[["Calorie (kcal)","calorie","#F59E0B"],["Proteine (g)","proteine_g","#2563EB"],["Carboidrati (g)","carboidrati_g","#F59E0B"],["Grassi (g)","grassi_g","#EF4444"]].map(([lbl,k,col]) => (
+              <div key={k} style={{ background: "#F2F2F7", borderRadius: 12, padding: "12px 14px" }}>
+                <div style={{ fontSize: 12, color: col, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>{lbl}</div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  defaultValue={f[k]}
+                  id={"confirm_" + k}
+                  style={{ width: "100%", background: "transparent", border: "none", borderBottom: "1.5px solid " + col, fontSize: 22, fontWeight: 700, color: "#1C1C1E", outline: "none", padding: "2px 0", boxSizing: "border-box" }} />
+              </div>
+            ))}
+          </div>
+          <button onClick={() => {
+            const updated = { ...f,
+              calorie: parseFloat(document.getElementById("confirm_calorie")?.value) || f.calorie,
+              proteine_g: parseFloat(document.getElementById("confirm_proteine_g")?.value) || f.proteine_g,
+              carboidrati_g: parseFloat(document.getElementById("confirm_carboidrati_g")?.value) || f.carboidrati_g,
+              grassi_g: parseFloat(document.getElementById("confirm_grassi_g")?.value) || f.grassi_g,
+            };
+            addFood(confirmFood.meal, updated);
+            setConfirmFood(null);
+            setFoodResults([]);
+            setAddingMeal(null);
+          }} style={{ width: "100%", background: "#1DB954", color: "white", border: "none", borderRadius: 14, padding: "16px", fontSize: 17, fontWeight: 700, cursor: "pointer", marginBottom: 10 }}>
+            Aggiungi al diario
+          </button>
+          <button onClick={() => setConfirmFood(null)}
+            style={{ width: "100%", background: "transparent", color: "#AEAEB2", border: "none", fontSize: 17, cursor: "pointer", padding: "8px" }}>
+            Annulla
+          </button>
         </div>
       </div>
     );
@@ -1264,6 +1266,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
       {activeTab === "dieta" && <TabDieta />}
       {activeTab === "allenamento" && <TabAllenamento />}
       {activeTab === "editor" && <TabEditor />}
+      <ConfirmFoodModal />
 
       {/* Tab bar */}
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.nav, borderTop: `1px solid ${C.border}`, display: "flex", paddingBottom: "env(safe-area-inset-bottom, 8px)", zIndex: 100 }}>
