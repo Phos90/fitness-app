@@ -165,35 +165,69 @@ function FoodRow({ food, onAdd, onToggleFav, isFav }) {
   );
 }
 
-// FoodEditor — nessun form, nessun state, legge i valori dai ref solo al salvataggio
-function FoodEditor({ food, onSave, onClose }) {
+// FoodEditor — modifica grammi (ricalcola tutto) o singoli valori + salva nei preferiti
+function FoodEditor({ food, onSave, onClose, onToggleFav, isFav }) {
+  const rGrams = React.useRef(null);
   const rKcal = React.useRef(null);
   const rProt = React.useRef(null);
   const rCarb = React.useRef(null);
   const rGras = React.useRef(null);
+
+  // Calcola i valori per 100g dall'alimento corrente (per poter ricalcolare)
+  // Cerca grammi nel nome (es. "yogurt 150g") altrimenti assume 100g
+  const gMatch = food.nome?.match(/(\d+(?:\.\d+)?)\s*g/i);
+  const currentGrams = gMatch ? parseFloat(gMatch[1]) : 100;
+  const kcal100 = Math.round(food.calorie / currentGrams * 100);
+  const prot100 = Math.round(food.proteine_g / currentGrams * 100 * 10) / 10;
+  const carb100 = Math.round(food.carboidrati_g / currentGrams * 100 * 10) / 10;
+  const fat100 = Math.round(food.grassi_g / currentGrams * 100 * 10) / 10;
+
+  function handleSave() {
+    const newGrams = parseFloat(rGrams.current?.value) || currentGrams;
+    const ratio = newGrams / 100;
+    // Se l'utente ha cambiato i grammi, ricalcola da 100g
+    // altrimenti usa i valori dei singoli campi
+    const gramsChanged = newGrams !== currentGrams;
+    onSave({
+      nome: food.nome.replace(/\d+(?:\.\d+)?\s*g/i, '').trim() + ` ${newGrams}g`,
+      calorie: gramsChanged ? Math.round(kcal100 * ratio) : (parseFloat(rKcal.current?.value) || food.calorie),
+      proteine_g: gramsChanged ? Math.round(prot100 * ratio * 10) / 10 : (parseFloat(rProt.current?.value) || food.proteine_g),
+      carboidrati_g: gramsChanged ? Math.round(carb100 * ratio * 10) / 10 : (parseFloat(rCarb.current?.value) || food.carboidrati_g),
+      grassi_g: gramsChanged ? Math.round(fat100 * ratio * 10) / 10 : (parseFloat(rGras.current?.value) || food.grassi_g),
+    });
+  }
+
   return (
     <div style={{ background: "#EFF6FF", padding: "12px 14px 14px", borderTop: "1px solid #E5E5EA" }}>
-      <div style={{ fontSize: 12, color: "#6C6C70", marginBottom: 10 }}>Modifica valori</div>
+      {/* Grammi — campo principale */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "#6C6C70", fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>Grammi (ricalcola tutto)</div>
+        <input ref={rGrams} type="number" inputMode="decimal" defaultValue={currentGrams}
+          style={{ width: "100%", padding: "10px 12px", border: "2px solid #1DB95440", borderRadius: 10, fontSize: 20, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box", fontWeight: 700, color: "#1C1C1E" }} />
+      </div>
+      {/* Valori singoli — modificabili manualmente */}
+      <div style={{ fontSize: 11, color: "#6C6C70", fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Oppure modifica i singoli valori</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
         {[["kcal",rKcal,food.calorie,"#F59E0B"],["P g",rProt,food.proteine_g,"#2563EB"],["C g",rCarb,food.carboidrati_g,"#F59E0B"],["G g",rGras,food.grassi_g,"#EF4444"]].map(([lbl,ref,val,col]) => (
           <div key={lbl}>
             <div style={{ fontSize: 11, color: col, fontWeight: 600, marginBottom: 4 }}>{lbl}</div>
             <input ref={ref} type="number" inputMode="decimal" defaultValue={val}
-              style={{ width: "100%", padding: "8px 6px", border: "1.5px solid " + col + "40", borderRadius: 10, fontSize: 17, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
+              style={{ width: "100%", padding: "8px 4px", border: "1.5px solid " + col + "40", borderRadius: 10, fontSize: 16, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
           </div>
         ))}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" onClick={() => onSave({
-          calorie: parseFloat(rKcal.current?.value) || food.calorie,
-          proteine_g: parseFloat(rProt.current?.value) || food.proteine_g,
-          carboidrati_g: parseFloat(rCarb.current?.value) || food.carboidrati_g,
-          grassi_g: parseFloat(rGras.current?.value) || food.grassi_g,
-        })} style={{ flex: 1, background: "#1DB954", color: "white", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
+        <button type="button" onClick={handleSave}
+          style={{ flex: 2, background: "#1DB954", color: "white", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
           Salva
         </button>
-        <button type="button" onClick={onClose} style={{ flex: 1, background: "#F2F2F7", color: "#6C6C70", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, cursor: "pointer" }}>
-          Annulla
+        <button type="button" onClick={onToggleFav}
+          style={{ flex: 1, background: isFav ? "#FEF9C3" : "#F2F2F7", border: "none", borderRadius: 12, padding: "12px", fontSize: 20, cursor: "pointer" }}>
+          {isFav ? "⭐" : "☆"}
+        </button>
+        <button type="button" onClick={onClose}
+          style={{ flex: 1, background: "#F2F2F7", color: "#6C6C70", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, cursor: "pointer" }}>
+          ✕
         </button>
       </div>
     </div>
@@ -273,6 +307,7 @@ export default function App() {
     try { localStorage.setItem('favorites', JSON.stringify(next)); } catch {}
   };
   const [editingFoodId, setEditingFoodId] = useState(null);
+  const [showFavorites, setShowFavorites] = useState(false);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -1029,10 +1064,15 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                           )}
                         </div>
                         {editingFoodId === food.id && (
-                          <FoodEditor food={food} meal={meal} onSave={(updated) => {
-                            setMeals(prev => ({ ...prev, [meal]: prev[meal].map(f => f.id === food.id ? { ...f, ...updated } : f) }));
-                            setEditingFoodId(null);
-                          }} onClose={() => setEditingFoodId(null)} />
+                          <FoodEditor food={food} meal={meal}
+                            onSave={(updated) => {
+                              setMeals(prev => ({ ...prev, [meal]: prev[meal].map(f => f.id === food.id ? { ...f, ...updated } : f) }));
+                              setEditingFoodId(null);
+                            }}
+                            onClose={() => setEditingFoodId(null)}
+                            onToggleFav={() => toggleFavorite(food)}
+                            isFav={isFavorite(food)}
+                          />
                         )}
                       </div>
                     ))}
@@ -1091,12 +1131,31 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       </div>
                     )}
 
-                    {/* Preferiti — mostrati sempre sopra */}
-                    {!foodLoading && favorites.length > 0 && foodResults.length === 0 && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, color: "#AEAEB2", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>⭐ Preferiti</div>
+                    {/* Bottone preferiti */}
+                    {favorites.length > 0 && foodResults.length === 0 && !foodLoading && (
+                      <button type="button" onClick={() => setShowFavorites(s => !s)}
+                        style={{ width: "100%", background: showFavorites ? "#FFFBEB" : "#F2F2F7", border: `1.5px solid ${showFavorites ? "#F59E0B" : "#E5E5EA"}`, borderRadius: 12, padding: "12px 16px", fontSize: 16, fontWeight: 600, color: showFavorites ? "#F59E0B" : "#6C6C70", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span>⭐ Preferiti ({favorites.length})</span>
+                        <span style={{ fontSize: 14 }}>{showFavorites ? "▲" : "▼"}</span>
+                      </button>
+                    )}
+                    {/* Lista preferiti */}
+                    {showFavorites && foodResults.length === 0 && !foodLoading && (
+                      <div style={{ background: "#FFFBEB", borderRadius: 12, border: "1px solid #F59E0B30", marginBottom: 10, overflow: "hidden" }}>
                         {favorites.map((food, i) => (
-                          <FoodRow key={i} food={food} onAdd={f => { addFood(meal, f); setAddingMeal(null); }} onToggleFav={() => toggleFavorite(food)} isFav={true} />
+                          <div key={i} style={{ display: "flex", alignItems: "center", padding: "12px 14px", borderBottom: i < favorites.length - 1 ? "1px solid #F59E0B20" : "none", gap: 10 }}>
+                            <div style={{ flex: 1 }} onClick={() => { addFood(meal, food); setShowFavorites(false); setAddingMeal(null); }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: "#1C1C1E", marginBottom: 3 }}>{food.nome}</div>
+                              <div style={{ display: "flex", gap: 10 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
+                                <span style={{ fontSize: 13, color: "#2563EB" }}>P {food.proteine_g}g</span>
+                                <span style={{ fontSize: 13, color: "#6C6C70" }}>C {food.carboidrati_g}g</span>
+                                <span style={{ fontSize: 13, color: "#EF4444" }}>G {food.grassi_g}g</span>
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => toggleFavorite(food)}
+                              style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", padding: "4px", color: "#AEAEB2", flexShrink: 0 }}>✕</button>
+                          </div>
                         ))}
                       </div>
                     )}
