@@ -490,6 +490,50 @@ Cosa mi suggerisci per la prossima sessione?`
   async function searchFood(query) {
     if (!query.trim()) return;
     setFoodLoading(true); setFoodResults([]);
+
+    // Estrai quantità dalla query (es. "150g" -> 150)
+    const qMatch = query.match(/(\d+(?:\.\d+)?)\s*g/i);
+    const grams = qMatch ? parseFloat(qMatch[1]) : 100;
+    const ratio = grams / 100;
+    // Nome senza la quantità per la ricerca
+    const searchName = query.replace(/\d+(?:\.\d+)?\s*g/i, '').trim();
+
+    try {
+      // 1. Prova Open Food Facts — gratuito, database reale
+      const offRes = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchName)}&json=1&page_size=5&fields=product_name,nutriments,quantity&search_simple=1&action=process`
+      );
+      const offData = await offRes.json();
+      const products = (offData.products || []).filter(p =>
+        p.nutriments?.['energy-kcal_100g'] && p.product_name
+      );
+
+      if (products.length > 0) {
+        // Prendi il primo risultato valido e proporziona
+        const results = products.slice(0, 2).map(p => {
+          const n = p.nutriments;
+          const kcal100 = n['energy-kcal_100g'] || 0;
+          const prot100 = n['proteins_100g'] || 0;
+          const carb100 = n['carbohydrates_100g'] || 0;
+          const fat100 = n['fat_100g'] || 0;
+          const label = grams !== 100 ? ` ${grams}g` : ' (100g)';
+          return {
+            nome: (p.product_name || searchName) + label,
+            calorie: Math.round(kcal100 * ratio),
+            proteine_g: Math.round(prot100 * ratio * 10) / 10,
+            carboidrati_g: Math.round(carb100 * ratio * 10) / 10,
+            grassi_g: Math.round(fat100 * ratio * 10) / 10,
+          };
+        });
+        setFoodResults(results);
+        setFoodLoading(false);
+        return;
+      }
+    } catch (e) {
+      // Open Food Facts non disponibile, fallback su Claude
+    }
+
+    // 2. Fallback su Claude se OFF non trova nulla
     try {
       const res = await fetch("/api/claude", {
         method: "POST",
@@ -498,26 +542,25 @@ Cosa mi suggerisci per la prossima sessione?`
           model: "claude-sonnet-4-6",
           max_tokens: 300,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}".
-STEP 1: estrai la quantità in grammi dalla query (es. "150g" → 150, "200g" → 200). Se non c'è quantità usa 100.
-STEP 2: trova i valori nutrizionali per 100g del prodotto.
-STEP 3: moltiplica ogni valore per (quantità/100) e arrotonda.
-ESEMPIO: "yogurt Fage 0% 150g" → per 100g: 57kcal P10.3g C3.7g G0g → x1.5 → 86kcal P15.5g C5.6g G0g
-I valori nel JSON devono essere già moltiplicati per la quantità specificata, MAI per 100g.
-Se nessun peso specificato → usa porzione tipica (es. 100g o 1 unità standard).
-Rispondi SOLO con JSON array puro, zero testo, zero backtick:
+STEP 1: estrai la quantità in grammi dalla query. Se non c'è usa 100g.
+STEP 2: trova i valori per 100g del prodotto.
+STEP 3: moltiplica per (quantità/100) e arrotonda.
+Rispondi SOLO con JSON array puro:
 [{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
       });
       const result = await res.json();
       const text = result.content?.map(c => c.text || "").join("") || "";
-      setFoodResults(JSON.parse(text.replace(/```json|```/g, "").trim()));
+      const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
+      setFoodResults(JSON.parse(clean));
     } catch (e) {
       setFoodResults([{ nome: "Errore nella ricerca", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
+    } finally {
+      setFoodLoading(false);
     }
-    setFoodLoading(false);
   }
 
-  async function searchFoodByPhoto(file, meal) {
+    async function searchFoodByPhoto(file, meal) {
     if (!file) return;
     setFoodLoading(true);
     setFoodResults([]);
