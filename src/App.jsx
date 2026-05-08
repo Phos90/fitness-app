@@ -308,6 +308,7 @@ export default function App() {
   };
   const [editingFoodId, setEditingFoodId] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -406,7 +407,7 @@ export default function App() {
     }
   }
 
-  const isToday = selectedMealDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedMealDate >= new Date().toISOString().split('T')[0]; // oggi o futuro = modificabile
 
   const totals = Object.values(meals).flat().reduce((a, f) => ({
     calorie: a.calorie + (f.calorie || 0), proteine: a.proteine + (f.proteine_g || 0),
@@ -945,23 +946,38 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
               {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
             </div>
           </div>
-          {/* Calendario 14 giorni */}
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-            {Array.from({ length: 14 }, (_, i) => {
-              const d = new Date(); d.setDate(d.getDate() - (13 - i));
-              const dk = d.toISOString().split("T")[0];
-              const hasMeals = (() => { try { const s = localStorage.getItem("meals_" + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
-              const isSel = dk === selectedMealDate;
-              const isT = dk === new Date().toISOString().split("T")[0];
-              return (
-                <button key={dk} onClick={() => loadMealsForDate(dk)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 10px", borderRadius: 12, border: `1.5px solid ${isSel ? C.green : C.border}`, background: isSel ? C.green : hasMeals ? C.greenLight : C.bg, cursor: "pointer", minWidth: 48 }}>
-                  <span style={{ fontSize: 11, color: isSel ? "white" : C.textTertiary, fontWeight: 600, textTransform: "uppercase" }}>{d.toLocaleDateString("it-IT", { weekday: "short" })}</span>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: isSel ? "white" : isT ? C.green : C.text, lineHeight: 1.2 }}>{d.getDate()}</span>
-                  {hasMeals && !isSel && <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, marginTop: 2 }} />}
-                </button>
-              );
-            })}
+          {/* Calendario -7/+7 + bottone data */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, flex: 1 }}>
+              {Array.from({ length: 15 }, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - 7 + i);
+                const dk = d.toISOString().split("T")[0];
+                const hasMeals = (() => { try { const s = localStorage.getItem("meals_" + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
+                const isSel = dk === selectedMealDate;
+                const isT = dk === new Date().toISOString().split("T")[0];
+                return (
+                  <button key={dk} onClick={() => loadMealsForDate(dk)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 10px", borderRadius: 12, border: `1.5px solid ${isSel ? C.green : C.border}`, background: isSel ? C.green : hasMeals ? C.greenLight : C.bg, cursor: "pointer", minWidth: 48 }}>
+                    <span style={{ fontSize: 11, color: isSel ? "white" : C.textTertiary, fontWeight: 600, textTransform: "uppercase" }}>{d.toLocaleDateString("it-IT", { weekday: "short" })}</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: isSel ? "white" : isT ? C.green : C.text, lineHeight: 1.2 }}>{d.getDate()}</span>
+                    {hasMeals && !isSel && <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, marginTop: 2 }} />}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Bottone selettore data completo */}
+            <button onClick={() => setShowDatePicker(s => !s)} style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 12, border: `1.5px solid ${showDatePicker ? C.green : C.border}`, background: showDatePicker ? C.greenLight : C.bg, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              📅
+            </button>
           </div>
+          {/* Date picker nativo */}
+          {showDatePicker && (
+            <div style={{ marginTop: 10 }}>
+              <input type="date" defaultValue={selectedMealDate}
+                max={new Date(Date.now() + 30*24*60*60*1000).toISOString().split("T")[0]}
+                onChange={e => { if (e.target.value) { loadMealsForDate(e.target.value); setShowDatePicker(false); } }}
+                style={{ width: "100%", padding: "12px 14px", border: `1.5px solid ${C.green}`, borderRadius: 12, fontSize: 17, color: C.text, background: C.card, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          )}
         </div>
 
         <div style={{ padding: "16px 16px 0" }}>
