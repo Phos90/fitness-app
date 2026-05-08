@@ -491,38 +491,33 @@ Cosa mi suggerisci per la prossima sessione?`
     if (!query.trim()) return;
     setFoodLoading(true); setFoodResults([]);
 
-    // Estrai quantità dalla query (es. "150g" -> 150)
+    // Estrai quantità e nome
     const qMatch = query.match(/(\d+(?:\.\d+)?)\s*g/i);
     const grams = qMatch ? parseFloat(qMatch[1]) : 100;
     const ratio = grams / 100;
-    // Nome senza la quantità per la ricerca
     const searchName = query.replace(/\d+(?:\.\d+)?\s*g/i, '').trim();
 
     try {
-      // 1. Prova Open Food Facts — gratuito, database reale
-      const offRes = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchName)}&json=1&page_size=5&fields=product_name,nutriments,quantity&search_simple=1&action=process`
-      );
+      // 1. Prova Open Food Facts via backend proxy (no CORS)
+      const offRes = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "openfoodfacts", query: searchName })
+      });
       const offData = await offRes.json();
       const products = (offData.products || []).filter(p =>
-        p.nutriments?.['energy-kcal_100g'] && p.product_name
+        p.nutriments?.['energy-kcal_100g'] != null && p.product_name
       );
 
       if (products.length > 0) {
-        // Prendi il primo risultato valido e proporziona
         const results = products.slice(0, 2).map(p => {
           const n = p.nutriments;
-          const kcal100 = n['energy-kcal_100g'] || 0;
-          const prot100 = n['proteins_100g'] || 0;
-          const carb100 = n['carbohydrates_100g'] || 0;
-          const fat100 = n['fat_100g'] || 0;
-          const label = grams !== 100 ? ` ${grams}g` : ' (100g)';
           return {
-            nome: (p.product_name || searchName) + label,
-            calorie: Math.round(kcal100 * ratio),
-            proteine_g: Math.round(prot100 * ratio * 10) / 10,
-            carboidrati_g: Math.round(carb100 * ratio * 10) / 10,
-            grassi_g: Math.round(fat100 * ratio * 10) / 10,
+            nome: p.product_name + (grams !== 100 ? ` ${grams}g` : ' (100g)'),
+            calorie: Math.round((n['energy-kcal_100g'] || 0) * ratio),
+            proteine_g: Math.round((n['proteins_100g'] || 0) * ratio * 10) / 10,
+            carboidrati_g: Math.round((n['carbohydrates_100g'] || 0) * ratio * 10) / 10,
+            grassi_g: Math.round((n['fat_100g'] || 0) * ratio * 10) / 10,
           };
         });
         setFoodResults(results);
@@ -530,10 +525,10 @@ Cosa mi suggerisci per la prossima sessione?`
         return;
       }
     } catch (e) {
-      // Open Food Facts non disponibile, fallback su Claude
+      // OFF non disponibile, vai su Claude
     }
 
-    // 2. Fallback su Claude se OFF non trova nulla
+    // 2. Fallback Claude
     try {
       const res = await fetch("/api/claude", {
         method: "POST",
@@ -542,19 +537,16 @@ Cosa mi suggerisci per la prossima sessione?`
           model: "claude-sonnet-4-6",
           max_tokens: 300,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}".
-STEP 1: estrai la quantità in grammi dalla query. Se non c'è usa 100g.
-STEP 2: trova i valori per 100g del prodotto.
-STEP 3: moltiplica per (quantità/100) e arrotonda.
-Rispondi SOLO con JSON array puro:
+Regole: trova valori per 100g poi moltiplica per la quantità specificata (es. 150g = x1.5). Se non c'è quantità usa 100g.
+Rispondi SOLO JSON array puro:
 [{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
       });
       const result = await res.json();
       const text = result.content?.map(c => c.text || "").join("") || "";
-      const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
-      setFoodResults(JSON.parse(clean));
+      setFoodResults(JSON.parse(text.replace(/```json|```/g, "").trim()));
     } catch (e) {
-      setFoodResults([{ nome: "Errore nella ricerca", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
+      setFoodResults([{ nome: "Errore — riprova", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
     } finally {
       setFoodLoading(false);
     }
