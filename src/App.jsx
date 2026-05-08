@@ -180,6 +180,25 @@ function FoodEditor({ food, onSave, onClose }) {
   );
 }
 
+// SearchInput isolato — stato locale per evitare re-render del parent durante la digitazione
+function SearchInput({ onSearch, loading }) {
+  const [val, setVal] = React.useState('');
+  return (
+    <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <input
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && onSearch(val)}
+        placeholder="Es. petto di pollo 150g"
+        style={{ flex: 1, padding: "14px 16px", border: "1.5px solid #E5E5EA", borderRadius: 12, fontSize: 17, color: "#1C1C1E", background: "white", outline: "none", boxSizing: "border-box", minHeight: 50 }} />
+      <button onClick={() => onSearch(val)}
+        style={{ background: "#1DB954", color: "white", border: "none", borderRadius: 12, padding: "0 20px", fontSize: 17, fontWeight: 600, cursor: "pointer", minHeight: 50, flexShrink: 0 }}>
+        {loading ? "..." : "Cerca"}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const f = { fontFamily: "Georgia, serif" };
   const [activeTab, setActiveTab] = useState("profilo");
@@ -981,13 +1000,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
 
                     {/* Campo testo */}
                     {!photoMode && (
-                      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                        <input value={foodSearch} onChange={e => setFoodSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && searchFood(foodSearch)}
-                          placeholder="Es. petto di pollo 150g" style={{ ...S.input, flex: 1 }} />
-                        <button onClick={() => searchFood(foodSearch)} style={{ ...S.btn(C.green), width: "auto", padding: "0 20px" }}>
-                          {foodLoading ? "..." : "Cerca"}
-                        </button>
-                      </div>
+                      <SearchInput onSearch={q => { setFoodSearch(q); searchFood(q); }} loading={foodLoading} />
                     )}
 
                     {/* Loading foto */}
