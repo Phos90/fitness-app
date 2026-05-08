@@ -499,14 +499,18 @@ Cosa mi suggerisci per la prossima sessione?`
 
     try {
       // 1. Prova Open Food Facts via backend proxy (no CORS)
+      // Riordina la query: brand + prodotto funziona meglio su OFF
+      const offQuery = searchName.split(' ').sort((a, b) => b.length - a.length).join(' ');
       const offRes = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "openfoodfacts", query: searchName })
+        body: JSON.stringify({ type: "openfoodfacts", query: offQuery })
       });
       const offData = await offRes.json();
       const products = (offData.products || []).filter(p =>
-        p.nutriments?.['energy-kcal_100g'] != null && p.product_name
+        p.nutriments?.['energy-kcal_100g'] != null &&
+        p.nutriments?.['proteins_100g'] != null &&
+        p.product_name
       );
 
       if (products.length > 0) {
