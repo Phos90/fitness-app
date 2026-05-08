@@ -286,7 +286,6 @@ export default function App() {
     { id: "health", title: "Salute", color: "#FAECE7" },
   ]);
   const [dragIdx, setDragIdx] = useState(null);
-  const todayKey = new Date().toISOString().split('T')[0];
   const [selectedMealDate, setSelectedMealDate] = useState(new Date().toISOString().split('T')[0]);
   const [meals, setMealsRaw] = useState(() => {
     try { const s = localStorage.getItem('meals_' + new Date().toISOString().split('T')[0]); return s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; } catch { return { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] }; }
@@ -407,7 +406,9 @@ export default function App() {
     }
   }
 
-  const isToday = selectedMealDate >= new Date().toISOString().split('T')[0]; // oggi o futuro = modificabile
+  const todayKey = new Date().toISOString().split('T')[0];
+  const isToday = selectedMealDate >= todayKey; // oggi o futuro = modificabile (per UI)
+  const isPast = selectedMealDate < todayKey; // solo passato = sola lettura
 
   const totals = Object.values(meals).flat().reduce((a, f) => ({
     calorie: a.calorie + (f.calorie || 0), proteine: a.proteine + (f.proteine_g || 0),
@@ -1043,7 +1044,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
             const mealKcal = items.reduce((a, f) => a + (f.calorie || 0), 0);
             return (
               <div key={meal} style={{ ...S.card }}>
-                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }} onClick={() => isToday && setAddingMeal(addingMeal === meal ? null : meal)}>
+                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }} onClick={() => !isPast && setAddingMeal(addingMeal === meal ? null : meal)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ fontSize: 28 }}>{MEALICONS[meal]}</div>
                     <div>
@@ -1051,7 +1052,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       <div style={T.footnote}>{mealKcal > 0 ? `${mealKcal} kcal` : "Nessun alimento"}</div>
                     </div>
                   </div>
-                  {isToday && <span style={{ ...T.title2, color: C.green }}>+</span>}
+                  {!isPast && <span style={{ ...T.title2, color: C.green }}>+</span>}
                 </div>
                 {items.length > 0 && (
                   <div style={{ borderTop: `1px solid ${C.border}` }}>
@@ -1086,7 +1087,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                     ))}
                   </div>
                 )}
-                {addingMeal === meal && isToday && (
+                {addingMeal === meal && !isPast && (
                   <div style={{ ...S.cardPad, borderTop: `1px solid ${C.border}` }}>
                     {/* Modalità ricerca — label-based per iOS compatibility */}
                     <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
