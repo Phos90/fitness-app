@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 
 // Mobile-first CSS — iPhone HIG compliant
 if (typeof document !== 'undefined' && !document.getElementById('ios-style')) {
