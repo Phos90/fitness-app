@@ -145,6 +145,26 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 
+// FoodRow — riga risultato con bottone preferiti e aggiungi
+function FoodRow({ food, onAdd, onToggleFav, isFav }) {
+  return (
+    <div style={{ background: "#F2F2F7", borderRadius: 12, marginBottom: 8, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onAdd(food)}>
+        <div style={{ fontSize: 16, color: "#1C1C1E", marginBottom: 4, lineHeight: 1.3 }}>{food.nome}</div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
+          <span style={{ fontSize: 13, color: "#2563EB" }}>P {food.proteine_g}g</span>
+          <span style={{ fontSize: 13, color: "#F59E0B" }}>C {food.carboidrati_g}g</span>
+          <span style={{ fontSize: 13, color: "#EF4444" }}>G {food.grassi_g}g</span>
+        </div>
+      </div>
+      <button onClick={onToggleFav} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", padding: "4px", flexShrink: 0 }}>
+        {isFav ? "⭐" : "☆"}
+      </button>
+    </div>
+  );
+}
+
 // FoodEditor — nessun form, nessun state, legge i valori dai ref solo al salvataggio
 function FoodEditor({ food, onSave, onClose }) {
   const rKcal = React.useRef(null);
@@ -244,6 +264,14 @@ export default function App() {
   const [foodLoading, setFoodLoading] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [photoMode, setPhotoMode] = useState(null);
+  const [favorites, setFavoritesRaw] = useState(() => {
+    try { const s = localStorage.getItem('favorites'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const setFavorites = (v) => {
+    const next = typeof v === 'function' ? v(favorites) : v;
+    setFavoritesRaw(next);
+    try { localStorage.setItem('favorites', JSON.stringify(next)); } catch {}
+  };
   const [editingFoodId, setEditingFoodId] = useState(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -485,6 +513,17 @@ Cosa mi suggerisci per la prossima sessione?`
       console.error("updatePiano error:", e);
     }
     setPianoUpdateLoading(false);
+  }
+
+  function toggleFavorite(food) {
+    setFavorites(prev => {
+      const exists = prev.find(f => f.nome === food.nome);
+      if (exists) return prev.filter(f => f.nome !== food.nome);
+      return [...prev, { ...food, id: Date.now() }];
+    });
+  }
+  function isFavorite(food) {
+    return favorites.some(f => f.nome === food.nome);
   }
 
   async function searchFood(query) {
@@ -1052,18 +1091,18 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                       </div>
                     )}
 
-                    {/* Risultati — tap per aggiungere */}
-                    {!foodLoading && foodResults.map((food, i) => (
-                      <div key={i} onClick={() => { addFood(meal, food); setFoodResults([]); setAddingMeal(null); }}
-                        style={{ background: "#F2F2F7", borderRadius: 12, marginBottom: 8, padding: "14px 14px" }}>
-                        <div style={{ fontSize: 17, color: "#1C1C1E", marginBottom: 6, lineHeight: 1.3 }}>{food.nome}</div>
-                        <div style={{ display: "flex", gap: 14 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: "#F59E0B" }}>{food.calorie} kcal</span>
-                          <span style={{ fontSize: 14, color: "#2563EB" }}>P {food.proteine_g}g</span>
-                          <span style={{ fontSize: 14, color: "#F59E0B" }}>C {food.carboidrati_g}g</span>
-                          <span style={{ fontSize: 14, color: "#EF4444" }}>G {food.grassi_g}g</span>
-                        </div>
+                    {/* Preferiti — mostrati sempre sopra */}
+                    {!foodLoading && favorites.length > 0 && foodResults.length === 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: "#AEAEB2", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>⭐ Preferiti</div>
+                        {favorites.map((food, i) => (
+                          <FoodRow key={i} food={food} onAdd={f => { addFood(meal, f); setAddingMeal(null); }} onToggleFav={() => toggleFavorite(food)} isFav={true} />
+                        ))}
                       </div>
+                    )}
+                    {/* Risultati ricerca */}
+                    {!foodLoading && foodResults.map((food, i) => (
+                      <FoodRow key={i} food={food} onAdd={f => { addFood(meal, f); setFoodResults([]); setAddingMeal(null); }} onToggleFav={() => toggleFavorite(food)} isFav={isFavorite(food)} />
                     ))}
                   </div>
                 )}
