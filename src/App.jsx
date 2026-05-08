@@ -145,40 +145,38 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 
-// FoodEditor — si apre sotto l'alimento già salvato
-// Usa un form HTML puro con action="#" per evitare qualsiasi re-render durante la digitazione
-function FoodEditor({ food, meal, onSave, onClose }) {
-  function handleSave(e) {
-    e.preventDefault();
-    const form = e.target;
-    onSave({
-      calorie: parseFloat(form.calorie.value) || food.calorie,
-      proteine_g: parseFloat(form.proteine_g.value) || food.proteine_g,
-      carboidrati_g: parseFloat(form.carboidrati_g.value) || food.carboidrati_g,
-      grassi_g: parseFloat(form.grassi_g.value) || food.grassi_g,
-    });
-  }
+// FoodEditor — nessun form, nessun state, legge i valori dai ref solo al salvataggio
+function FoodEditor({ food, onSave, onClose }) {
+  const rKcal = React.useRef(null);
+  const rProt = React.useRef(null);
+  const rCarb = React.useRef(null);
+  const rGras = React.useRef(null);
   return (
-    <form onSubmit={handleSave} style={{ background: "#EFF6FF", padding: "12px 14px 14px", borderTop: "1px solid #E5E5EA" }}>
+    <div style={{ background: "#EFF6FF", padding: "12px 14px 14px", borderTop: "1px solid #E5E5EA" }}>
       <div style={{ fontSize: 12, color: "#6C6C70", marginBottom: 10 }}>Modifica valori</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-        {[["kcal","calorie","#F59E0B"],["P g","proteine_g","#2563EB"],["C g","carboidrati_g","#F59E0B"],["G g","grassi_g","#EF4444"]].map(([lbl,k,col]) => (
-          <div key={k}>
+        {[["kcal",rKcal,food.calorie,"#F59E0B"],["P g",rProt,food.proteine_g,"#2563EB"],["C g",rCarb,food.carboidrati_g,"#F59E0B"],["G g",rGras,food.grassi_g,"#EF4444"]].map(([lbl,ref,val,col]) => (
+          <div key={lbl}>
             <div style={{ fontSize: 11, color: col, fontWeight: 600, marginBottom: 4 }}>{lbl}</div>
-            <input name={k} type="number" inputMode="decimal" defaultValue={food[k]}
+            <input ref={ref} type="number" inputMode="decimal" defaultValue={val}
               style={{ width: "100%", padding: "8px 6px", border: "1.5px solid " + col + "40", borderRadius: 10, fontSize: 17, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box" }} />
           </div>
         ))}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        <button type="submit" style={{ flex: 1, background: "#1DB954", color: "white", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
+        <button type="button" onClick={() => onSave({
+          calorie: parseFloat(rKcal.current?.value) || food.calorie,
+          proteine_g: parseFloat(rProt.current?.value) || food.proteine_g,
+          carboidrati_g: parseFloat(rCarb.current?.value) || food.carboidrati_g,
+          grassi_g: parseFloat(rGras.current?.value) || food.grassi_g,
+        })} style={{ flex: 1, background: "#1DB954", color: "white", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
           Salva
         </button>
         <button type="button" onClick={onClose} style={{ flex: 1, background: "#F2F2F7", color: "#6C6C70", border: "none", borderRadius: 12, padding: "12px", fontSize: 16, cursor: "pointer" }}>
           Annulla
         </button>
       </div>
-    </form>
+    </div>
   );
 }
 
