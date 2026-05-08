@@ -565,64 +565,56 @@ Cosa mi suggerisci per la prossima sessione?`
     if (!query.trim()) return;
     setFoodLoading(true); setFoodResults([]);
 
-    // Estrai quantità e nome
-    const qMatch = query.match(/(\d+(?:\.\d+)?)\s*g/i);
-    const grams = qMatch ? parseFloat(qMatch[1]) : 100;
-    const ratio = grams / 100;
-    const searchName = query.replace(/\d+(?:\.\d+)?\s*g/i, '').trim();
+    const qMatch = query.match(/(\d+(?:\.\d+)?)\s*g/i);
+    const grams = qMatch ? parseFloat(qMatch[1]) : null;
+    const ratio = grams ? grams / 100 : 1;
+    const searchName = query.replace(/\d+(?:\.\d+)?\s*g/i, '').replace(/^\d+\s+/, '').trim();
 
     try {
-      // 1. Prova Open Food Facts via backend proxy (no CORS)
-      // Riordina la query: brand + prodotto funziona meglio su OFF
-      const offQuery = searchName.split(' ').sort((a, b) => b.length - a.length).join(' ');
-      const offRes = await fetch("/api/claude", {
+      // Lancia OFF e Claude in parallelo — prende il primo che risponde con risultati
+      const offPromise = fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "openfoodfacts", query: offQuery })
-      });
-      const offData = await offRes.json();
-      const products = (offData.products || []).filter(p =>
-        p.nutriments?.['energy-kcal_100g'] != null &&
-        p.nutriments?.['proteins_100g'] != null &&
-        p.product_name
-      );
-
-      if (products.length > 0) {
-        const results = products.slice(0, 2).map(p => {
+        body: JSON.stringify({ type: "openfoodfacts", query: searchName.split(' ').sort((a,b) => b.length-a.length).join(' ') })
+      }).then(r => r.json()).then(data => {
+        const products = (data.products || []).filter(p => p.nutriments?.['energy-kcal_100g'] != null && p.product_name);
+        if (products.length === 0) return null;
+        return products.slice(0, 2).map(p => {
           const n = p.nutriments;
           return {
-            nome: p.product_name + (grams !== 100 ? ` ${grams}g` : ' (100g)'),
+            nome: p.product_name + (grams ? ` ${grams}g` : ' (100g)'),
             calorie: Math.round((n['energy-kcal_100g'] || 0) * ratio),
             proteine_g: Math.round((n['proteins_100g'] || 0) * ratio * 10) / 10,
             carboidrati_g: Math.round((n['carbohydrates_100g'] || 0) * ratio * 10) / 10,
             grassi_g: Math.round((n['fat_100g'] || 0) * ratio * 10) / 10,
           };
         });
-        setFoodResults(results);
-        setFoodLoading(false);
-        return;
-      }
-    } catch (e) {
-      // OFF non disponibile, vai su Claude
-    }
+      }).catch(() => null);
 
-    // 2. Fallback Claude
-    try {
-      const res = await fetch("/api/claude", {
+      const claudePromise = fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 300,
           messages: [{ role: "user", content: `Valori nutrizionali per: "${query}".
-Regole: trova valori per 100g poi moltiplica per la quantità specificata (es. 150g = x1.5). Se non c'è quantità usa 100g.
+- Se grammi specificati: trova per 100g e moltiplica. Es. "150g" = x1.5
+- Se unità (es. "15 pomodorini", "2 uova"): stima peso totale e calcola
+- Se nessuna quantità: usa porzione standard
 Rispondi SOLO JSON array puro:
 [{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
         })
-      });
-      const result = await res.json();
-      const text = result.content?.map(c => c.text || "").join("") || "";
-      setFoodResults(JSON.parse(text.replace(/```json|```/g, "").trim()));
+      }).then(r => r.json()).then(data => {
+        const text = data.content?.map(c => c.text || "").join("") || "";
+        return JSON.parse(text.replace(/```json|```/g, "").trim());
+      }).catch(() => null);
+
+      // Prende il primo risultato valido
+      const result = await Promise.any([
+        offPromise.then(r => r || Promise.reject()),
+        claudePromise.then(r => r || Promise.reject()),
+      ]);
+      setFoodResults(result);
     } catch (e) {
       setFoodResults([{ nome: "Errore — riprova", calorie: 0, proteine_g: 0, carboidrati_g: 0, grassi_g: 0 }]);
     } finally {
