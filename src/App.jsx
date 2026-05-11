@@ -349,6 +349,18 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [recentFoods, setRecentFoodsRaw] = useState(() => {
+    try { const s = localStorage.getItem('recentFoods'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const setRecentFoods = (v) => {
+    const next = typeof v === 'function' ? v(recentFoods) : v;
+    setRecentFoodsRaw(next);
+    try { localStorage.setItem('recentFoods', JSON.stringify(next)); } catch {}
+  };
+  const [showCopyDay, setShowCopyDay] = useState(false);
+  const [copyCalMonth, setCopyCalMonth] = useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
+  });
   const [calMonth, setCalMonth] = useState(() => {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
   });
@@ -721,6 +733,24 @@ Cosa mi suggerisci per la prossima sessione?`
     setSession(null);
   }
 
+  async function copyMealsFromDay(sourceDate) {
+    try {
+      const s = localStorage.getItem('meals_' + sourceDate);
+      if (!s) { alert('Nessun pasto trovato per quel giorno'); return; }
+      const sourceMeals = JSON.parse(s);
+      // Copia ogni pasto riassegnando gli id
+      const copied = {};
+      Object.entries(sourceMeals).forEach(([mealName, foods]) => {
+        copied[mealName] = foods.map(f => ({ ...f, id: Date.now() + Math.random() }));
+      });
+      setMeals(copied);
+      setShowCopyDay(false);
+      alert(`Pasti copiati da ${new Date(sourceDate + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`);
+    } catch(e) {
+      alert('Errore nel copiare i pasti');
+    }
+  }
+
   async function searchFood(query) {
     if (!query.trim()) return;
     setFoodLoading(true); setFoodResults([]);
@@ -829,6 +859,11 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
   function addFood(meal, food) {
     setMeals(p => ({ ...p, [meal]: [...p[meal], { ...food, id: Date.now() }] }));
     setAddingMeal(null); setFoodSearch(""); setFoodResults([]);
+    // Salva nei recenti
+    setRecentFoods(prev => {
+      const filtered = prev.filter(f => f.nome !== food.nome);
+      return [{ nome: food.nome, calorie: food.calorie, proteine_g: food.proteine_g, carboidrati_g: food.carboidrati_g, grassi_g: food.grassi_g }, ...filtered].slice(0, 20);
+    });
   }
   function removeFood(meal, id) { setMeals(p => ({ ...p, [meal]: p[meal].filter(f => f.id !== id) })); }
   function updateFood(meal, id, k, v) { setMeals(p => ({ ...p, [meal]: p[meal].map(f => f.id === id ? { ...f, [k]: parseFloat(v) || 0 } : f) })); }
@@ -1101,10 +1136,55 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
         <div style={{ background: C.card, padding: "56px 20px 16px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ ...S.row, marginBottom: 16 }}>
             <div style={T.title1}>Alimentazione</div>
-            <div style={{ ...T.subhead, color: isToday ? C.green : C.textSecondary, fontWeight: 600 }}>
-              {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ ...T.subhead, color: isToday ? C.green : C.textSecondary, fontWeight: 600 }}>
+                {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
+              </div>
+              <button onClick={() => setShowCopyDay(s => !s)}
+                style={{ background: showCopyDay ? C.blueLight : C.bg, border: `1.5px solid ${showCopyDay ? C.blue : C.border}`, borderRadius: 10, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: showCopyDay ? C.blue : C.textSecondary, cursor: "pointer" }}>
+                📋 Copia
+              </button>
             </div>
           </div>
+          {showCopyDay && (
+            <div style={{ background: C.blueLight, borderRadius: 14, border: `1px solid ${C.blue}30`, overflow: "hidden", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.blue}20` }}>
+                <button onClick={() => setCopyCalMonth(m => { const d = new Date(m.year, m.month-1); return { year: d.getFullYear(), month: d.getMonth() }; })} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer" }}>‹</button>
+                <span style={T.headline}>{new Date(copyCalMonth.year, copyCalMonth.month).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}</span>
+                <button onClick={() => setCopyCalMonth(m => { const d = new Date(m.year, m.month+1); return { year: d.getFullYear(), month: d.getMonth() }; })} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer" }}>›</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+                {["Lu","Ma","Me","Gi","Ve","Sa","Do"].map(d => <div key={d} style={{ textAlign: "center", padding: "6px 0", fontSize: 11, color: C.textTertiary, fontWeight: 600 }}>{d}</div>)}
+              </div>
+              {(() => {
+                const first = new Date(copyCalMonth.year, copyCalMonth.month, 1);
+                const last = new Date(copyCalMonth.year, copyCalMonth.month+1, 0);
+                const offset = (first.getDay()+6)%7;
+                const rows = Math.ceil((offset+last.getDate())/7);
+                return Array.from({ length: rows }, (_, r) => (
+                  <div key={r} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+                    {Array.from({ length: 7 }, (_, c) => {
+                      const dn = r*7+c-offset+1;
+                      if (dn<1||dn>last.getDate()) return <div key={c} style={{ padding: "10px 0" }}/>;
+                      const dk = `${copyCalMonth.year}-${String(copyCalMonth.month+1).padStart(2,"0")}-${String(dn).padStart(2,"0")}`;
+                      const has = (() => { try { const s = localStorage.getItem("meals_"+dk); return s&&Object.values(JSON.parse(s)).flat().length>0; } catch { return false; } })();
+                      return (
+                        <button key={c} onClick={() => has && copyMealsFromDay(dk)} disabled={!has}
+                          style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0", background: "transparent", border: "none", cursor: has ? "pointer" : "default", opacity: has ? 1 : 0.3 }}>
+                          <span style={{ fontSize: 15, color: C.text, fontWeight: dk===new Date().toISOString().split("T")[0] ? 700 : 400 }}>{dn}</span>
+                          {has && <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.blue, marginTop: 2 }}/>}
+                          {!has && <div style={{ width: 5, height: 5, marginTop: 2 }}/>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
+              <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.blue}20`, textAlign: "center" }}>
+                <span style={{ fontSize: 12, color: C.blue }}>Tocca un giorno 🔵 per copiare i pasti</span>
+              </div>
+            </div>
+          )}
           {/* Bottone calendario */}
           <button onClick={() => setShowCalendar(s => !s)}
             style={{ width: "100%", background: showCalendar ? C.green : C.bg, border: `1.5px solid ${showCalendar ? C.green : C.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 16, fontWeight: 600, color: showCalendar ? "white" : C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -1239,26 +1319,28 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
             const isOpen = addingMeal === meal || expandedMeal === meal;
             return (
               <div key={meal} style={{ ...S.card }}>
-                {/* Header accordion */}
-                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }}
-                  onClick={() => setExpandedMeal(isOpen && addingMeal !== meal ? null : meal)}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 28 }}>{MEALICONS[meal]}</div>
-                    <div>
-                      <div style={T.headline}>{meal}</div>
-                      <div style={{ ...T.footnote, color: mealKcal > 0 ? C.green : C.textTertiary }}>
-                        {mealKcal > 0 ? `${mealKcal} kcal · ${items.length} aliment${items.length === 1 ? "o" : "i"}` : "Nessun alimento"}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {!isPast && (
-                      <button onClick={e => { e.stopPropagation(); setAddingMeal(addingMeal === meal ? null : meal); setExpandedMeal(meal); setFoodResults([]); }}
-                        style={{ ...S.btnSmall(C.green), minHeight: 36, padding: "6px 14px" }}>+ Aggiungi</button>
-                    )}
-                    <span style={{ color: C.textTertiary, fontSize: 18, transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
-                  </div>
-                </div>
+                 {/* Header accordion */}
+                 <div style={{ display: "flex", alignItems: "center" }}>
+                   <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
+                     onClick={() => setExpandedMeal(isOpen && addingMeal !== meal ? null : meal)}>
+                     <div style={{ fontSize: 26 }}>{MEALICONS[meal]}</div>
+                     <div style={{ flex: 1 }}>
+                       <div style={T.headline}>{meal}</div>
+                       <div style={{ ...T.footnote, color: mealKcal > 0 ? C.green : C.textTertiary }}>
+                         {mealKcal > 0 ? `${mealKcal} kcal · ${items.length} aliment${items.length === 1 ? "o" : "i"}` : "Nessun alimento"}
+                       </div>
+                     </div>
+                     <div style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                       <span style={{ color: C.textSecondary, fontSize: 22, display: "block", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>&#9662;</span>
+                     </div>
+                   </div>
+                   {!isPast && (
+                     <button onClick={e => { e.stopPropagation(); setAddingMeal(addingMeal === meal ? null : meal); setExpandedMeal(meal); setFoodResults([]); }}
+                       style={{ width: 52, alignSelf: "stretch", background: C.green, border: "none", borderRadius: "0 14px 14px 0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                       <span style={{ color: "white", fontSize: 30, lineHeight: 1 }}>+</span>
+                     </button>
+                   )}
+                 </div>
                 {/* Lista alimenti — accordion */}
                 {isOpen && items.length > 0 && (
                   <div style={{ borderTop: `1px solid ${C.border}` }}>
@@ -1343,6 +1425,19 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                         <div style={{ ...T.footnote }}>
                           {photoMode ? "Analisi immagine in corso..." : "Ricerca in corso..."}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Recenti — mostrati quando non c'è ricerca attiva */}
+                    {recentFoods.length > 0 && foodResults.length === 0 && !foodLoading && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: "#AEAEB2", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>🕐 Recenti</div>
+                        {recentFoods.slice(0, 5).map((food, i) => (
+                          <FoodRow key={i} food={food}
+                            onAdd={f => { addFood(meal, f); setAddingMeal(null); }}
+                            onToggleFav={() => toggleFavorite(food)}
+                            isFav={isFavorite(food)} />
+                        ))}
                       </div>
                     )}
 
