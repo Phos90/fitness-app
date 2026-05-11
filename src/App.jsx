@@ -1,4 +1,36 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+
+// Supabase client
+const SUPABASE_URL = "https://pchbpkftertgmfmknefo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_YRThGeqGG3-LEGCYNyUbiw_OLQNYh6E";
+
+async function sbFetch(path, options = {}) {
+  const session = JSON.parse(localStorage.getItem('sb_session') || 'null');
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${session?.access_token || SUPABASE_KEY}`,
+    ...options.headers
+  };
+  const res = await fetch(SUPABASE_URL + path, { ...options, headers });
+  return res;
+}
+
+async function sbAuth(email, password, type = 'login') {
+  const endpoint = type === 'login' ? '/auth/v1/token?grant_type=password' : '/auth/v1/signup';
+  const res = await fetch(SUPABASE_URL + endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (data.access_token) localStorage.setItem('sb_session', JSON.stringify(data));
+  return data;
+}
+
+function getSession() {
+  try { return JSON.parse(localStorage.getItem('sb_session') || 'null'); } catch { return null; }
+}
 
 // Mobile-first CSS — iPhone HIG compliant
 if (typeof document !== 'undefined' && !document.getElementById('ios-style')) {
@@ -308,6 +340,18 @@ export default function App() {
   const [editingFoodId, setEditingFoodId] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [expandedMeal, setExpandedMeal] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [session, setSession] = useState(() => getSession());
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [calMonth, setCalMonth] = useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
+  });
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -561,6 +605,120 @@ Cosa mi suggerisci per la prossima sessione?`
   }
   function isFavorite(food) {
     return favorites.some(f => f.nome === food.nome);
+  }
+
+  // ─── SUPABASE SYNC ───────────────────────────────────────────────────────────
+  async function syncToCloud() {
+    if (!session) return;
+    setSyncing(true);
+    try {
+      const uid = session.user?.id;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Salva pasti del giorno corrente
+      for (const [mealName, foods] of Object.entries(meals)) {
+        await sbFetch(`/rest/v1/meals`, {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify({ user_id: uid, date: selectedMealDate, meal_name: mealName, foods, updated_at: new Date().toISOString() })
+        });
+      }
+
+      // Salva peso
+      for (const w of weightHistory) {
+        await sbFetch(`/rest/v1/weight_history`, {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=ignore-duplicates' },
+          body: JSON.stringify({ user_id: uid, date: w.date, value: w.value })
+        });
+      }
+
+      // Salva preferiti
+      await sbFetch(`/rest/v1/favorites?user_id=eq.${uid}`, { method: 'DELETE' });
+      for (const f of favorites) {
+        await sbFetch(`/rest/v1/favorites`, {
+          method: 'POST',
+          body: JSON.stringify({ user_id: uid, food: f })
+        });
+      }
+
+      // Salva composizione corporea
+      await sbFetch(`/rest/v1/body_data`, {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ user_id: uid, ...bodyData, updated_at: new Date().toISOString() })
+      });
+
+      // Salva workout assignments
+      await sbFetch(`/rest/v1/workout_assignments`, {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ user_id: uid, assignments: workoutAssignments, updated_at: new Date().toISOString() })
+      });
+
+    } catch(e) { console.error('Sync error:', e); }
+    setSyncing(false);
+  }
+
+  async function loadFromCloud() {
+    if (!session) return;
+    setSyncing(true);
+    try {
+      const uid = session.user?.id;
+
+      // Carica pasti del giorno selezionato
+      const mealsRes = await sbFetch(`/rest/v1/meals?user_id=eq.${uid}&date=eq.${selectedMealDate}`);
+      const mealsData = await mealsRes.json();
+      if (mealsData.length > 0) {
+        const newMeals = { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] };
+        mealsData.forEach(m => { newMeals[m.meal_name] = m.foods; });
+        setMeals(newMeals);
+      }
+
+      // Carica peso
+      const weightRes = await sbFetch(`/rest/v1/weight_history?user_id=eq.${uid}&order=created_at.asc`);
+      const weightData = await weightRes.json();
+      if (weightData.length > 0) setWeightHistory(weightData.map(w => ({ date: w.date, value: parseFloat(w.value) })));
+
+      // Carica preferiti
+      const favRes = await sbFetch(`/rest/v1/favorites?user_id=eq.${uid}`);
+      const favData = await favRes.json();
+      if (favData.length > 0) setFavorites(favData.map(f => f.food));
+
+      // Carica composizione corporea
+      const bodyRes = await sbFetch(`/rest/v1/body_data?user_id=eq.${uid}`);
+      const bodyArr = await bodyRes.json();
+      if (bodyArr.length > 0) setBodyData({ fat: bodyArr[0].fat || '', lean: bodyArr[0].lean || '', water: bodyArr[0].water || '' });
+
+      // Carica workout
+      const wkRes = await sbFetch(`/rest/v1/workout_assignments?user_id=eq.${uid}`);
+      const wkArr = await wkRes.json();
+      if (wkArr.length > 0) setWorkoutAssignments(wkArr[0].assignments || {});
+
+    } catch(e) { console.error('Load error:', e); }
+    setSyncing(false);
+  }
+
+  // Auto-sync quando cambia il giorno selezionato
+  useEffect(() => {
+    if (session) loadFromCloud();
+  }, [selectedMealDate, session]);
+
+  async function handleAuth() {
+    setAuthLoading(true); setAuthError('');
+    const data = await sbAuth(authEmail, authPassword, authMode);
+    if (data.access_token) {
+      setSession(data);
+      await loadFromCloud();
+    } else {
+      setAuthError(data.error_description || data.msg || 'Errore di accesso');
+    }
+    setAuthLoading(false);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('sb_session');
+    setSession(null);
   }
 
   async function searchFood(query) {
@@ -947,36 +1105,72 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
               {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
             </div>
           </div>
-          {/* Calendario -7/+7 + bottone data */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, flex: 1 }}>
-              {Array.from({ length: 15 }, (_, i) => {
-                const d = new Date(); d.setDate(d.getDate() - 7 + i);
-                const dk = d.toISOString().split("T")[0];
-                const hasMeals = (() => { try { const s = localStorage.getItem("meals_" + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
-                const isSel = dk === selectedMealDate;
-                const isT = dk === new Date().toISOString().split("T")[0];
-                return (
-                  <button key={dk} onClick={() => loadMealsForDate(dk)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 10px", borderRadius: 12, border: `1.5px solid ${isSel ? C.green : C.border}`, background: isSel ? C.green : hasMeals ? C.greenLight : C.bg, cursor: "pointer", minWidth: 48 }}>
-                    <span style={{ fontSize: 11, color: isSel ? "white" : C.textTertiary, fontWeight: 600, textTransform: "uppercase" }}>{d.toLocaleDateString("it-IT", { weekday: "short" })}</span>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: isSel ? "white" : isT ? C.green : C.text, lineHeight: 1.2 }}>{d.getDate()}</span>
-                    {hasMeals && !isSel && <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, marginTop: 2 }} />}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Bottone selettore data completo */}
-            <button onClick={() => setShowDatePicker(s => !s)} style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 12, border: `1.5px solid ${showDatePicker ? C.green : C.border}`, background: showDatePicker ? C.greenLight : C.bg, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              📅
-            </button>
-          </div>
-          {/* Date picker nativo */}
-          {showDatePicker && (
-            <div style={{ marginTop: 10 }}>
-              <input type="date" defaultValue={selectedMealDate}
-                max={new Date(Date.now() + 30*24*60*60*1000).toISOString().split("T")[0]}
-                onChange={e => { if (e.target.value) { loadMealsForDate(e.target.value); setShowDatePicker(false); } }}
-                style={{ width: "100%", padding: "12px 14px", border: `1.5px solid ${C.green}`, borderRadius: 12, fontSize: 17, color: C.text, background: C.card, outline: "none", boxSizing: "border-box" }} />
+          {/* Bottone calendario */}
+          <button onClick={() => setShowCalendar(s => !s)}
+            style={{ width: "100%", background: showCalendar ? C.green : C.bg, border: `1.5px solid ${showCalendar ? C.green : C.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 16, fontWeight: 600, color: showCalendar ? "white" : C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <span style={{ fontSize: 20 }}>📅</span>
+            <span>Calendario</span>
+            <span style={{ marginLeft: "auto", fontSize: 14 }}>{showCalendar ? "▲" : "▼"}</span>
+          </button>
+
+          {/* Calendario mensile a griglia */}
+          {showCalendar && (
+            <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden", marginTop: 8 }}>
+              {/* Header mese */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+                <button onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                  style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text, padding: "0 8px" }}>‹</button>
+                <span style={{ ...T.headline }}>
+                  {new Date(calMonth.year, calMonth.month).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}
+                </span>
+                <button onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                  style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text, padding: "0 8px" }}>›</button>
+              </div>
+              {/* Intestazione giorni settimana */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: `1px solid ${C.border}` }}>
+                {["Lu","Ma","Me","Gi","Ve","Sa","Do"].map(d => (
+                  <div key={d} style={{ textAlign: "center", padding: "8px 0", ...T.caption, fontWeight: 600 }}>{d}</div>
+                ))}
+              </div>
+              {/* Griglia giorni */}
+              {(() => {
+                const firstDay = new Date(calMonth.year, calMonth.month, 1);
+                const lastDay = new Date(calMonth.year, calMonth.month + 1, 0);
+                // Lunedì = 0, offset per partire da lunedì
+                const startOffset = (firstDay.getDay() + 6) % 7;
+                const totalCells = startOffset + lastDay.getDate();
+                const rows = Math.ceil(totalCells / 7);
+                const todayStr = new Date().toISOString().split("T")[0];
+                return Array.from({ length: rows }, (_, row) => (
+                  <div key={row} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: row < rows-1 ? `1px solid ${C.border}` : "none" }}>
+                    {Array.from({ length: 7 }, (_, col) => {
+                      const dayNum = row * 7 + col - startOffset + 1;
+                      if (dayNum < 1 || dayNum > lastDay.getDate()) {
+                        return <div key={col} style={{ padding: "10px 0" }} />;
+                      }
+                      const dk = `${calMonth.year}-${String(calMonth.month+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`;
+                      const isSel = dk === selectedMealDate;
+                      const isT = dk === todayStr;
+                      const hasMeals = (() => { try { const s = localStorage.getItem("meals_" + dk); return s && Object.values(JSON.parse(s)).flat().length > 0; } catch { return false; } })();
+                      return (
+                        <button key={col} onClick={() => { loadMealsForDate(dk); setShowCalendar(false); }}
+                          style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0", background: isSel ? C.green : "transparent", border: "none", cursor: "pointer", position: "relative" }}>
+                          <span style={{ fontSize: 15, fontWeight: isT || isSel ? 700 : 400, color: isSel ? "white" : isT ? C.green : C.text }}>
+                            {dayNum}
+                          </span>
+                          {hasMeals && <div style={{ width: 5, height: 5, borderRadius: "50%", background: isSel ? "white" : C.green, marginTop: 2 }} />}
+                          {!hasMeals && <div style={{ width: 5, height: 5, marginTop: 2 }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
+              {/* Bottone oggi */}
+              <div style={{ padding: 12, borderTop: `1px solid ${C.border}` }}>
+                <button onClick={() => { const t = new Date().toISOString().split("T")[0]; loadMealsForDate(t); setCalMonth({ year: new Date().getFullYear(), month: new Date().getMonth() }); setShowCalendar(false); }}
+                  style={{ ...S.btnOutline(C.green), padding: "10px" }}>Vai ad oggi</button>
+              </div>
             </div>
           )}
         </div>
@@ -1042,19 +1236,31 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
           {["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena"].map(meal => {
             const items = meals[meal] || [];
             const mealKcal = items.reduce((a, f) => a + (f.calorie || 0), 0);
+            const isOpen = addingMeal === meal || expandedMeal === meal;
             return (
               <div key={meal} style={{ ...S.card }}>
-                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }} onClick={() => !isPast && setAddingMeal(addingMeal === meal ? null : meal)}>
+                {/* Header accordion */}
+                <div style={{ ...S.cardPad, ...S.row, cursor: "pointer" }}
+                  onClick={() => setExpandedMeal(isOpen && addingMeal !== meal ? null : meal)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ fontSize: 28 }}>{MEALICONS[meal]}</div>
                     <div>
                       <div style={T.headline}>{meal}</div>
-                      <div style={T.footnote}>{mealKcal > 0 ? `${mealKcal} kcal` : "Nessun alimento"}</div>
+                      <div style={{ ...T.footnote, color: mealKcal > 0 ? C.green : C.textTertiary }}>
+                        {mealKcal > 0 ? `${mealKcal} kcal · ${items.length} aliment${items.length === 1 ? "o" : "i"}` : "Nessun alimento"}
+                      </div>
                     </div>
                   </div>
-                  {!isPast && <span style={{ ...T.title2, color: C.green }}>+</span>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {!isPast && (
+                      <button onClick={e => { e.stopPropagation(); setAddingMeal(addingMeal === meal ? null : meal); setExpandedMeal(meal); setFoodResults([]); }}
+                        style={{ ...S.btnSmall(C.green), minHeight: 36, padding: "6px 14px" }}>+ Aggiungi</button>
+                    )}
+                    <span style={{ color: C.textTertiary, fontSize: 18, transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                  </div>
                 </div>
-                {items.length > 0 && (
+                {/* Lista alimenti — accordion */}
+                {isOpen && items.length > 0 && (
                   <div style={{ borderTop: `1px solid ${C.border}` }}>
                     {items.map(food => (
                       <div key={food.id} style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -1175,6 +1381,8 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                   </div>
                 )}
               </div>
+            );
+          })}
             );
           })}
         </div>
@@ -1405,6 +1613,49 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
     { id: "allenamento", label: "Training", icon: "🏋" },
     { id: "editor", label: "Editor", icon: "✏️" },
   ];
+
+  // Schermata login se non autenticato
+  if (!session) {
+    return (
+      <div style={{ background: C.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif", maxWidth: 480, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: "100%" }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>💪</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: C.text }}>Fitness App</div>
+            <div style={{ fontSize: 17, color: C.textSecondary, marginTop: 4 }}>Il tuo trainer personale</div>
+          </div>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24 }}>
+            {/* Toggle login/registrazione */}
+            <div style={{ display: "flex", background: C.bg, borderRadius: 12, padding: 4, marginBottom: 24 }}>
+              {["login","register"].map(mode => (
+                <button key={mode} onClick={() => { setAuthMode(mode); setAuthError(''); }}
+                  style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: authMode === mode ? C.card : "transparent", color: authMode === mode ? C.text : C.textSecondary, fontWeight: authMode === mode ? 600 : 400, fontSize: 16, cursor: "pointer" }}>
+                  {mode === "login" ? "Accedi" : "Registrati"}
+                </button>
+              ))}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, color: C.textSecondary, marginBottom: 6 }}>Email</div>
+              <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                placeholder="la-tua@email.com"
+                style={{ ...S.input }} />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 13, color: C.textSecondary, marginBottom: 6 }}>Password</div>
+              <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{ ...S.input }} />
+            </div>
+            {authError && <div style={{ background: C.redLight, borderRadius: 10, padding: "10px 14px", fontSize: 14, color: C.red, marginBottom: 14 }}>{authError}</div>}
+            <button onClick={handleAuth} disabled={authLoading || !authEmail || !authPassword}
+              style={{ ...S.btn(authLoading ? C.textTertiary : C.green) }}>
+              {authLoading ? "Caricamento..." : authMode === "login" ? "Accedi" : "Crea account"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: C.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif", maxWidth: 480, margin: "0 auto", minHeight: "100vh", position: "relative" }}>
