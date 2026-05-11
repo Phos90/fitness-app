@@ -1134,15 +1134,21 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
       <div style={S.page}>
         {/* Header fisso */}
         <div style={{ background: C.card, padding: "56px 20px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ ...S.row, marginBottom: 16 }}>
-            <div style={T.title1}>Alimentazione</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ ...T.subhead, color: isToday ? C.green : C.textSecondary, fontWeight: 600 }}>
-                {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })}
+          <div style={{ ...S.row, marginBottom: 14 }}>
+            <div>
+              <div style={T.title1}>Alimentazione</div>
+              <div style={{ ...T.subhead, color: isToday ? C.green : C.textSecondary, fontWeight: 500, marginTop: 2 }}>
+                {new Date(selectedMealDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
               </div>
-              <button onClick={() => setShowCopyDay(s => !s)}
-                style={{ background: showCopyDay ? C.blueLight : C.bg, border: `1.5px solid ${showCopyDay ? C.blue : C.border}`, borderRadius: 10, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: showCopyDay ? C.blue : C.textSecondary, cursor: "pointer" }}>
-                📋 Copia
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setShowCopyDay(s => !s); setShowCalendar(false); }}
+                style={{ width: 44, height: 44, borderRadius: 12, border: `1.5px solid ${showCopyDay ? C.blue : C.border}`, background: showCopyDay ? C.blueLight : C.bg, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                📋
+              </button>
+              <button onClick={() => { setShowCalendar(s => !s); setShowCopyDay(false); }}
+                style={{ width: 44, height: 44, borderRadius: 12, border: `1.5px solid ${showCalendar ? C.green : C.border}`, background: showCalendar ? C.greenLight : C.bg, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                📅
               </button>
             </div>
           </div>
@@ -1190,7 +1196,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
             style={{ width: "100%", background: showCalendar ? C.green : C.bg, border: `1.5px solid ${showCalendar ? C.green : C.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 16, fontWeight: 600, color: showCalendar ? "white" : C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <span style={{ fontSize: 20 }}>📅</span>
             <span>Calendario</span>
-            <span style={{ marginLeft: "auto", fontSize: 14 }}>{showCalendar ? "▲" : "▼"}</span>
+
           </button>
 
           {/* Calendario mensile a griglia */}
@@ -1320,24 +1326,25 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
             return (
               <div key={meal} style={{ ...S.card }}>
                  {/* Header accordion */}
-                 <div style={{ display: "flex", alignItems: "center" }}>
-                   <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
+                 <div style={{ display: "flex", alignItems: "center", minHeight: 64 }}>
+                   {/* Tap area — apre/chiude */}
+                   <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 14, padding: "0 16px", cursor: "pointer", minHeight: 64 }}
                      onClick={() => setExpandedMeal(isOpen && addingMeal !== meal ? null : meal)}>
-                     <div style={{ fontSize: 26 }}>{MEALICONS[meal]}</div>
+                     <span style={{ fontSize: 28, flexShrink: 0 }}>{MEALICONS[meal]}</span>
                      <div style={{ flex: 1 }}>
-                       <div style={T.headline}>{meal}</div>
-                       <div style={{ ...T.footnote, color: mealKcal > 0 ? C.green : C.textTertiary }}>
+                       <div style={{ fontSize: 17, fontWeight: 600, color: C.text }}>{meal}</div>
+                       <div style={{ fontSize: 13, color: mealKcal > 0 ? C.green : C.textTertiary, marginTop: 1 }}>
                          {mealKcal > 0 ? `${mealKcal} kcal · ${items.length} aliment${items.length === 1 ? "o" : "i"}` : "Nessun alimento"}
                        </div>
                      </div>
-                     <div style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                       <span style={{ color: C.textSecondary, fontSize: 22, display: "block", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>&#9662;</span>
-                     </div>
+                     {/* Chevron grande */}
+                     <span style={{ fontSize: 28, color: C.textTertiary, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.25s", lineHeight: 1, flexShrink: 0 }}>⌄</span>
                    </div>
+                   {/* + separato */}
                    {!isPast && (
-                     <button onClick={e => { e.stopPropagation(); setAddingMeal(addingMeal === meal ? null : meal); setExpandedMeal(meal); setFoodResults([]); }}
-                       style={{ width: 52, alignSelf: "stretch", background: C.green, border: "none", borderRadius: "0 14px 14px 0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                       <span style={{ color: "white", fontSize: 30, lineHeight: 1 }}>+</span>
+                     <button type="button" onClick={e => { e.stopPropagation(); setAddingMeal(addingMeal === meal ? null : meal); setExpandedMeal(meal); setFoodResults([]); }}
+                       style={{ width: 52, minHeight: 64, background: C.greenLight, border: "none", borderLeft: `1px solid ${C.green}30`, borderRadius: "0 16px 16px 0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                       <span style={{ color: C.green, fontSize: 32, lineHeight: 1, fontWeight: 300 }}>+</span>
                      </button>
                    )}
                  </div>
@@ -1476,8 +1483,6 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                   </div>
                 )}
               </div>
-            );
-          })}
             );
           })}
         </div>
