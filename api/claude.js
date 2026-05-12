@@ -14,7 +14,8 @@ export default async function handler(req, res) {
     // Se è una ricerca Open Food Facts
     if (body.type === 'openfoodfacts') {
       const { query } = body;
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=5&fields=product_name,nutriments,quantity&search_simple=1&action=process`;
+      const fields = body.fields || 'product_name,brands,nutriments,quantity';
+      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=8&fields=${fields}&search_simple=1&action=process`;
       const offRes = await fetch(url, {
         headers: { 'User-Agent': 'FitnessApp/1.0 (https://fitness-app-ecru-five.vercel.app)' }
       });
