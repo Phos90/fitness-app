@@ -905,19 +905,20 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
 
   function addFood(meal, food) {
     const newFood = { ...food, id: Date.now() };
-    setMeals(p => {
-      const updated = { ...p, [meal]: [...p[meal], newFood] };
-      // Auto-save su Supabase
-      saveMealToCloud(meal, updated[meal]);
-      return updated;
-    });
+    const updatedMealFoods = [...(meals[meal] || []), newFood];
+    setMeals(p => ({ ...p, [meal]: updatedMealFoods }));
+    saveMealToCloud(meal, updatedMealFoods);
     setAddingMeal(null); setFoodSearch(""); setFoodResults([]);
     setRecentFoods(prev => {
       const filtered = prev.filter(f => f.nome !== food.nome);
       return [{ nome: food.nome, calorie: food.calorie, proteine_g: food.proteine_g, carboidrati_g: food.carboidrati_g, grassi_g: food.grassi_g }, ...filtered].slice(0, 20);
     });
   }
-  function removeFood(meal, id) { setMeals(p => ({ ...p, [meal]: p[meal].filter(f => f.id !== id) })); }
+  function removeFood(meal, id) {
+    const updated = (meals[meal] || []).filter(f => f.id !== id);
+    setMeals(p => ({ ...p, [meal]: updated }));
+    saveMealToCloud(meal, updated);
+  }
   function updateFood(meal, id, k, v) { setMeals(p => ({ ...p, [meal]: p[meal].map(f => f.id === id ? { ...f, [k]: parseFloat(v) || 0 } : f) })); }
 
 ;
@@ -1426,7 +1427,9 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                         {editingFoodId === food.id && (
                           <FoodEditor food={food} meal={meal}
                             onSave={(updated) => {
-                              setMeals(prev => ({ ...prev, [meal]: prev[meal].map(f => f.id === food.id ? { ...f, ...updated } : f) }));
+                              const newFoods = (meals[meal] || []).map(f => f.id === food.id ? { ...f, ...updated } : f);
+                              setMeals(prev => ({ ...prev, [meal]: newFoods }));
+                              saveMealToCloud(meal, newFoods);
                               setEditingFoodId(null);
                             }}
                             onClose={() => setEditingFoodId(null)}
