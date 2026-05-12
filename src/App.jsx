@@ -1357,7 +1357,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
               <svg width={100} height={100}>
                 <circle cx={50} cy={50} r={42} fill="none" stroke={isOverTarget ? C.redLight : C.border} strokeWidth={10} />
                 <circle cx={50} cy={50} r={42} fill="none" stroke={ringColor} strokeWidth={10}
-                  strokeDasharray={`${ringPct * 2.64} 264`} strokeDashoffset={66} strokeLinecap="round" transform="rotate(-90 50 50)" />
+                  strokeDasharray={`${(ringPct / 100) * 263.9} 263.9`} strokeDashoffset={0} strokeLinecap="round" transform="rotate(-90 50 50)" />
                 <text x={50} y={46} textAnchor="middle" fontSize={20} fontWeight={700} fill={isOverTarget ? C.red : C.text}>{totals.calorie}</text>
                 <text x={50} y={62} textAnchor="middle" fontSize={11} fill={isOverTarget ? C.red : C.textSecondary}>/ {tKcal}</text>
               </svg>
