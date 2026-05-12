@@ -480,7 +480,9 @@ export default function App() {
 
   function addWeight() {
     if (!newWeight) return;
-    setWeightHistory(p => [...p, { date: new Date().toLocaleDateString("it-IT"), value: parseFloat(newWeight) }]);
+    const entry = { date: new Date().toLocaleDateString("it-IT"), value: parseFloat(newWeight) };
+    setWeightHistory(p => [...p, entry]);
+    saveWeightToCloud(entry.date, entry.value);
     setNewWeight("");
   }
 
@@ -611,8 +613,9 @@ Cosa mi suggerisci per la prossima sessione?`
   function toggleFavorite(food) {
     setFavorites(prev => {
       const exists = prev.find(f => f.nome === food.nome);
-      if (exists) return prev.filter(f => f.nome !== food.nome);
-      return [...prev, { ...food, id: Date.now() }];
+      const updated = exists ? prev.filter(f => f.nome !== food.nome) : [...prev, { ...food, id: Date.now() }];
+      saveFavoritesToCloud(updated);
+      return updated;
     });
   }
   function isFavorite(food) {
@@ -620,6 +623,47 @@ Cosa mi suggerisci per la prossima sessione?`
   }
 
   // ─── SUPABASE SYNC ───────────────────────────────────────────────────────────
+  // Salva automaticamente un singolo pasto su Supabase
+  async function saveMealToCloud(mealName, foods) {
+    if (!session) return;
+    try {
+      const uid = session.user?.id;
+      await sbFetch(`/rest/v1/meals`, {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ user_id: uid, date: selectedMealDate, meal_name: mealName, foods, updated_at: new Date().toISOString() })
+      });
+    } catch(e) { console.error('Auto-save meal error:', e); }
+  }
+
+  // Salva peso su Supabase
+  async function saveWeightToCloud(date, value) {
+    if (!session) return;
+    try {
+      const uid = session.user?.id;
+      await sbFetch(`/rest/v1/weight_history`, {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=ignore-duplicates' },
+        body: JSON.stringify({ user_id: uid, date, value })
+      });
+    } catch(e) { console.error('Auto-save weight error:', e); }
+  }
+
+  // Salva preferiti su Supabase
+  async function saveFavoritesToCloud(newFavorites) {
+    if (!session) return;
+    try {
+      const uid = session.user?.id;
+      await sbFetch(`/rest/v1/favorites?user_id=eq.${uid}`, { method: 'DELETE' });
+      for (const f of newFavorites) {
+        await sbFetch(`/rest/v1/favorites`, {
+          method: 'POST',
+          body: JSON.stringify({ user_id: uid, food: f })
+        });
+      }
+    } catch(e) { console.error('Auto-save favorites error:', e); }
+  }
+
   async function syncToCloud() {
     if (!session) return;
     setSyncing(true);
@@ -765,18 +809,21 @@ Cosa mi suggerisci per la prossima sessione?`
       const offPromise = fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "openfoodfacts", query: searchName.split(' ').sort((a,b) => b.length-a.length).join(' ') })
+        body: JSON.stringify({ type: "openfoodfacts", query: searchName.split(' ').sort((a,b) => b.length-a.length).join(' '), fields: "product_name,brands,nutriments,quantity" })
       }).then(r => r.json()).then(data => {
         const products = (data.products || []).filter(p => p.nutriments?.['energy-kcal_100g'] != null && p.product_name);
         if (products.length === 0) return null;
-        return products.slice(0, 2).map(p => {
+        // Mostra tutti i risultati (max 5) — l'utente sceglie quello giusto
+        return products.slice(0, 5).map(p => {
           const n = p.nutriments;
+          const brand = p.brands ? ` · ${p.brands.split(',')[0].trim()}` : '';
           return {
-            nome: p.product_name + (grams ? ` ${grams}g` : ' (100g)'),
+            nome: p.product_name + brand + (grams ? ` ${grams}g` : ' (100g)'),
             calorie: Math.round((n['energy-kcal_100g'] || 0) * ratio),
             proteine_g: Math.round((n['proteins_100g'] || 0) * ratio * 10) / 10,
             carboidrati_g: Math.round((n['carbohydrates_100g'] || 0) * ratio * 10) / 10,
             grassi_g: Math.round((n['fat_100g'] || 0) * ratio * 10) / 10,
+            _source: 'off',
           };
         });
       }).catch(() => null);
@@ -857,9 +904,14 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
   }
 
   function addFood(meal, food) {
-    setMeals(p => ({ ...p, [meal]: [...p[meal], { ...food, id: Date.now() }] }));
+    const newFood = { ...food, id: Date.now() };
+    setMeals(p => {
+      const updated = { ...p, [meal]: [...p[meal], newFood] };
+      // Auto-save su Supabase
+      saveMealToCloud(meal, updated[meal]);
+      return updated;
+    });
     setAddingMeal(null); setFoodSearch(""); setFoodResults([]);
-    // Salva nei recenti
     setRecentFoods(prev => {
       const filtered = prev.filter(f => f.nome !== food.nome);
       return [{ nome: food.nome, calorie: food.calorie, proteine_g: food.proteine_g, carboidrati_g: food.carboidrati_g, grassi_g: food.grassi_g }, ...filtered].slice(0, 20);
@@ -1129,7 +1181,10 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
 
   // ─── DIETA TAB ───────────────────────────────────────────────────────────────
   function TabDieta() {
-    const pctKcal = Math.min(100, tKcal > 0 ? (totals.calorie/tKcal)*100 : 0);
+    const pctKcal = tKcal > 0 ? (totals.calorie/tKcal)*100 : 0;
+    const isOverTarget = pctKcal > 100;
+    const ringColor = isOverTarget ? C.red : C.green;
+    const ringPct = isOverTarget ? 100 : pctKcal; // se sfora, riempie tutto il cerchio
     return (
       <div style={S.page}>
         {/* Header fisso */}
@@ -1264,19 +1319,20 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
         <div style={{ padding: "16px 16px 0" }}>
 
           {/* Ring calorie */}
+          {/* Ring calorie */}
           <div style={{ ...S.card, ...S.cardPad, display: "flex", alignItems: "center", gap: 20 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
               <svg width={100} height={100}>
-                <circle cx={50} cy={50} r={42} fill="none" stroke={C.border} strokeWidth={10} />
-                <circle cx={50} cy={50} r={42} fill="none" stroke={C.green} strokeWidth={10}
-                  strokeDasharray={`${pctKcal * 2.64} 264`} strokeDashoffset={66} strokeLinecap="round" transform="rotate(-90 50 50)" />
-                <text x={50} y={46} textAnchor="middle" fontSize={20} fontWeight={700} fill={C.text}>{totals.calorie}</text>
-                <text x={50} y={62} textAnchor="middle" fontSize={11} fill={C.textSecondary}>/ {tKcal}</text>
+                <circle cx={50} cy={50} r={42} fill="none" stroke={isOverTarget ? C.redLight : C.border} strokeWidth={10} />
+                <circle cx={50} cy={50} r={42} fill="none" stroke={ringColor} strokeWidth={10}
+                  strokeDasharray={`${ringPct * 2.64} 264`} strokeDashoffset={66} strokeLinecap="round" transform="rotate(-90 50 50)" />
+                <text x={50} y={46} textAnchor="middle" fontSize={20} fontWeight={700} fill={isOverTarget ? C.red : C.text}>{totals.calorie}</text>
+                <text x={50} y={62} textAnchor="middle" fontSize={11} fill={isOverTarget ? C.red : C.textSecondary}>/ {tKcal}</text>
               </svg>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ ...T.headline, marginBottom: 2 }}>Calorie oggi</div>
-              <div style={{ ...T.footnote, marginBottom: 12 }}>{tKcal - totals.calorie > 0 ? `${tKcal - totals.calorie} kcal rimanenti` : "Obiettivo raggiunto!"}</div>
+              <div style={{ ...T.footnote, marginBottom: 12 }}>{isOverTarget ? `⚠️ +${Math.round(totals.calorie - tKcal)} kcal sforato` : tKcal - totals.calorie > 0 ? `${Math.round(tKcal - totals.calorie)} kcal rimanenti` : "✓ Obiettivo raggiunto!"}</div>
               {[["Proteine", totals.proteine, tP, C.blue], ["Carboidrati", totals.carboidrati, tC, C.orange], ["Grassi", totals.grassi, tF, C.red]].map(([lbl, eaten, target, color]) => (
                 <div key={lbl} style={{ marginBottom: 8 }}>
                   <div style={{ ...S.row, marginBottom: 3 }}>
