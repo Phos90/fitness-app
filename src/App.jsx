@@ -5,7 +5,28 @@ const SUPABASE_URL = "https://pchbpkftertgmfmknefo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_YRThGeqGG3-LEGCYNyUbiw_OLQNYh6E";
 
 async function sbFetch(path, options = {}) {
-  const session = JSON.parse(localStorage.getItem('sb_session') || 'null');
+  let session = JSON.parse(localStorage.getItem('sb_session') || 'null');
+  
+  // Refresh token se scaduto o mancante
+  if (session?.refresh_token) {
+    const exp = session.expires_at || 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec >= exp - 60) {
+      try {
+        const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+          body: JSON.stringify({ refresh_token: session.refresh_token })
+        });
+        const newSession = await r.json();
+        if (newSession.access_token) {
+          localStorage.setItem('sb_session', JSON.stringify(newSession));
+          session = newSession;
+        }
+      } catch(e) { console.error('Token refresh failed:', e); }
+    }
+  }
+  
   const headers = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_KEY,
