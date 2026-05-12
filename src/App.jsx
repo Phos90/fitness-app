@@ -649,11 +649,21 @@ Cosa mi suggerisci per la prossima sessione?`
     if (!session) return;
     try {
       const uid = session.user?.id;
-      await sbFetch(`/rest/v1/meals`, {
-        method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body: JSON.stringify({ user_id: uid, date: selectedMealDate, meal_name: mealName, foods, updated_at: new Date().toISOString() })
-      });
+      const date = selectedMealDate;
+      // Prima prova PATCH (aggiorna record esistente)
+      const patchRes = await sbFetch(
+        `/rest/v1/meals?user_id=eq.${uid}&date=eq.${date}&meal_name=eq.${encodeURIComponent(mealName)}`,
+        { method: 'PATCH', headers: { 'Prefer': 'return=representation' },
+          body: JSON.stringify({ foods, updated_at: new Date().toISOString() }) }
+      );
+      const patched = await patchRes.json();
+      // Se PATCH non ha trovato nulla, fa INSERT
+      if (!Array.isArray(patched) || patched.length === 0) {
+        await sbFetch(`/rest/v1/meals`, {
+          method: 'POST',
+          body: JSON.stringify({ user_id: uid, date, meal_name: mealName, foods, updated_at: new Date().toISOString() })
+        });
+      }
     } catch(e) { console.error('Auto-save meal error:', e); }
   }
 
@@ -664,7 +674,7 @@ Cosa mi suggerisci per la prossima sessione?`
       const uid = session.user?.id;
       await sbFetch(`/rest/v1/weight_history`, {
         method: 'POST',
-        headers: { 'Prefer': 'resolution=ignore-duplicates' },
+        headers: { 'Prefer': 'return=minimal' },
         body: JSON.stringify({ user_id: uid, date, value })
       });
     } catch(e) { console.error('Auto-save weight error:', e); }
