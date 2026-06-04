@@ -2022,6 +2022,12 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
       {activeTab === "dieta" && <TabDieta />}
       {activeTab === "allenamento" && <TabAllenamento />}
       {activeTab === "editor" && <TabEditor />}
+      {showGoals && (
+        <GoalsPanel tKcal={tKcal} tP={tP} tC={tC} tF={tF} goals={goals}
+          onSave={(g) => { setGoals(g); setShowGoals(false); }}
+          onClose={() => setShowGoals(false)}
+          C={C} T={T} S={S} />
+      )}
 
       {/* Tab bar */}
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.nav, borderTop: `1px solid ${C.border}`, display: "flex", paddingBottom: "env(safe-area-inset-bottom, 8px)", zIndex: 100 }}>
