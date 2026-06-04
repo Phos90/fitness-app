@@ -238,15 +238,17 @@ function FoodEditor({ food, onSave, onClose, onToggleFav, isFav }) {
   function handleSave() {
     const newGrams = parseFloat(rGrams.current?.value) || currentGrams;
     const ratio = newGrams / 100;
-    // Se l'utente ha cambiato i grammi, ricalcola da 100g
-    // altrimenti usa i valori dei singoli campi
     const gramsChanged = newGrams !== currentGrams;
+    const zucc100 = Math.round((food.zuccheri_g || 0) / currentGrams * 100 * 10) / 10;
+    const fibr100 = Math.round((food.fibre_g || 0) / currentGrams * 100 * 10) / 10;
     onSave({
       nome: food.nome.replace(/\d+(?:\.\d+)?\s*g/i, '').trim() + ` ${newGrams}g`,
       calorie: gramsChanged ? Math.round(kcal100 * ratio) : (parseFloat(rKcal.current?.value) || food.calorie),
       proteine_g: gramsChanged ? Math.round(prot100 * ratio * 10) / 10 : (parseFloat(rProt.current?.value) || food.proteine_g),
       carboidrati_g: gramsChanged ? Math.round(carb100 * ratio * 10) / 10 : (parseFloat(rCarb.current?.value) || food.carboidrati_g),
       grassi_g: gramsChanged ? Math.round(fat100 * ratio * 10) / 10 : (parseFloat(rGras.current?.value) || food.grassi_g),
+      zuccheri_g: gramsChanged ? Math.round(zucc100 * ratio * 10) / 10 : (parseFloat(rZucc.current?.value) || 0),
+      fibre_g: gramsChanged ? Math.round(fibr100 * ratio * 10) / 10 : (parseFloat(rFibre.current?.value) || 0),
     });
   }
 
@@ -259,9 +261,8 @@ function FoodEditor({ food, onSave, onClose, onToggleFav, isFav }) {
           style={{ width: "100%", padding: "10px 12px", border: "2px solid #1DB95440", borderRadius: 10, fontSize: 20, textAlign: "center", background: "white", outline: "none", boxSizing: "border-box", fontWeight: 700, color: "#1C1C1E" }} />
       </div>
       {/* Valori singoli — modificabili manualmente */}
-      <div style={{ fontSize: 11, color: "#6C6C70", fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Oppure modifica i singoli valori</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-        {[["kcal",rKcal,food.calorie,"#F59E0B"],["P g",rProt,food.proteine_g,"#2563EB"],["C g",rCarb,food.carboidrati_g,"#F59E0B"],["G g",rGras,food.grassi_g,"#EF4444"]].map(([lbl,ref,val,col]) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+        {[["kcal",rKcal,food.calorie,"#F59E0B"],["P g",rProt,food.proteine_g,"#2563EB"],["C g",rCarb,food.carboidrati_g,"#F59E0B"],["G g",rGras,food.grassi_g,"#EF4444"],["Zucc",rZucc,food.zuccheri_g||0,"#F59E0B"],["Fibre",rFibre,food.fibre_g||0,"#10B981"]].map(([lbl,ref,val,col]) => (
           <div key={lbl}>
             <div style={{ fontSize: 11, color: col, fontWeight: 600, marginBottom: 4 }}>{lbl}</div>
             <input ref={ref} type="number" inputMode="decimal" defaultValue={val}
@@ -975,6 +976,8 @@ Cosa mi suggerisci per la prossima sessione?`
             proteine_g: Math.round((n['proteins_100g'] || 0) * ratio * 10) / 10,
             carboidrati_g: Math.round((n['carbohydrates_100g'] || 0) * ratio * 10) / 10,
             grassi_g: Math.round((n['fat_100g'] || 0) * ratio * 10) / 10,
+            zuccheri_g: Math.round((n['sugars_100g'] || 0) * ratio * 10) / 10,
+            fibre_g: Math.round((n['fiber_100g'] || n['fibers_100g'] || 0) * ratio * 10) / 10,
             _source: 'off',
           };
         });
@@ -991,7 +994,7 @@ Cosa mi suggerisci per la prossima sessione?`
 - Se unità (es. "15 pomodorini", "2 uova"): stima peso totale e calcola
 - Se nessuna quantità: usa porzione standard
 Rispondi SOLO JSON array puro:
-[{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero}]` }]
+[{"nome":"nome + quantità","calorie":numero,"proteine_g":numero,"carboidrati_g":numero,"grassi_g":numero,"zuccheri_g":numero,"fibre_g":numero}]` }]
         })
       }).then(r => r.json()).then(data => {
         const text = data.content?.map(c => c.text || "").join("") || "";
@@ -1620,7 +1623,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                         <div style={{ ...S.cardPad, ...S.row }}>
                           <div style={{ flex: 1 }}>
                             <div style={T.body}>{food.nome}</div>
-                            <div style={T.footnote}>{food.calorie} kcal · P {food.proteine_g}g · C {food.carboidrati_g}g · G {food.grassi_g}g</div>
+                            <div style={T.footnote}>{food.calorie} kcal · P {food.proteine_g}g · C {food.carboidrati_g}g{food.zuccheri_g ? ` (${food.zuccheri_g}g zucc)` : ""} · G {food.grassi_g}g{food.fibre_g ? ` · 🌿 ${food.fibre_g}g` : ""}</div>
                           </div>
                           {isToday && (
                             <div style={{ display: "flex", gap: 6 }}>
