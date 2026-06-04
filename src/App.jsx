@@ -359,15 +359,22 @@ function GoalsPanel({ tKcal, tP, tC, tF, goals, onSave, onClose, C, T, S }) {
         <div style={{ fontSize: 13, color: C.textSecondary, fontWeight: 600, marginBottom: 12, textTransform: "uppercase" }}>Distribuzione macro (%)</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
           {[
-            ["Proteine", rPctP, defaultPctP, "#2563EB"],
-            ["Carboidrati", rPctC, defaultPctC, "#F59E0B"],
-            ["Grassi", rPctF, defaultPctF, "#EF4444"],
-          ].map(([lbl, ref, def, col]) => (
+            ["Proteine", rPctP, defaultPctP, "#2563EB", 4, "P×4"],
+            ["Carboidrati", rPctC, defaultPctC, "#F59E0B", 4, "C×4"],
+            ["Grassi", rPctF, defaultPctF, "#EF4444", 9, "G×9"],
+          ].map(([lbl, ref, def, col, kcalPerG, formula]) => (
             <div key={lbl} style={{ background: col + "10", borderRadius: 14, padding: "12px 10px", textAlign: "center" }}>
               <div style={{ fontSize: 12, color: col, fontWeight: 600, marginBottom: 8 }}>{lbl}</div>
               <input ref={ref} type="number" inputMode="decimal" defaultValue={def} onBlur={update}
                 style={{ width: "100%", background: "white", border: `1.5px solid ${col}40`, borderRadius: 10, fontSize: 22, fontWeight: 700, color: col, textAlign: "center", padding: "8px 4px", outline: "none", boxSizing: "border-box" }} />
               <div style={{ fontSize: 11, color: col, marginTop: 4 }}>%</div>
+              {/* Formula esplicativa */}
+              <div style={{ fontSize: 10, color: col + "99", marginTop: 6, lineHeight: 1.4 }}>
+                {preview.kcal} × {def}% ÷ {kcalPerG}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: col, marginTop: 2 }}>
+                = {Math.round((preview.kcal * def / 100) / kcalPerG)}g
+              </div>
             </div>
           ))}
         </div>
