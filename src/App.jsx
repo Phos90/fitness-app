@@ -306,6 +306,108 @@ function SearchInput({ onSearch, loading }) {
   );
 }
 
+// Pannello obiettivi — schermata modal
+function GoalsPanel({ tKcal, tP, tC, tF, goals, onSave, onClose, C, T, S }) {
+  const rKcal = React.useRef(null);
+  const rPctP = React.useRef(null);
+  const rPctC = React.useRef(null);
+  const rPctF = React.useRef(null);
+
+  const defaultKcal = goals?.kcal || tKcal;
+  const defaultPctP = goals?.pctP || Math.round((tP * 4 / tKcal) * 100);
+  const defaultPctC = goals?.pctC || Math.round((tC * 4 / tKcal) * 100);
+  const defaultPctF = goals?.pctF || Math.round((tF * 9 / tKcal) * 100);
+
+  function calcGrams(kcal, pctP, pctC, pctF) {
+    return {
+      kcal: Math.round(kcal),
+      proteine_g: Math.round((kcal * pctP / 100) / 4),
+      carboidrati_g: Math.round((kcal * pctC / 100) / 4),
+      grassi_g: Math.round((kcal * pctF / 100) / 9),
+      pctP, pctC, pctF,
+    };
+  }
+
+  const [preview, setPreview] = React.useState(() => calcGrams(defaultKcal, defaultPctP, defaultPctC, defaultPctF));
+
+  function update() {
+    const kcal = parseFloat(rKcal.current?.value) || defaultKcal;
+    const pP = parseFloat(rPctP.current?.value) || defaultPctP;
+    const pC = parseFloat(rPctC.current?.value) || defaultPctC;
+    const pF = parseFloat(rPctF.current?.value) || defaultPctF;
+    setPreview(calcGrams(kcal, pP, pC, pF));
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ background: "white", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, margin: "0 auto", padding: "24px 20px 44px", maxHeight: "85vh", overflowY: "auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>Obiettivi giornalieri</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: C.textTertiary }}>✕</button>
+        </div>
+
+        {/* Kcal target */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: C.textSecondary, fontWeight: 600, marginBottom: 8, textTransform: "uppercase" }}>Calorie target</div>
+          <input ref={rKcal} type="number" inputMode="decimal" defaultValue={defaultKcal} onBlur={update}
+            style={{ width: "100%", padding: "14px 16px", border: `2px solid ${C.green}`, borderRadius: 14, fontSize: 28, fontWeight: 700, color: C.text, textAlign: "center", outline: "none", boxSizing: "border-box" }} />
+          <div style={{ fontSize: 13, color: C.textSecondary, textAlign: "center", marginTop: 6 }}>kcal / giorno</div>
+        </div>
+
+        {/* Percentuali macro */}
+        <div style={{ fontSize: 13, color: C.textSecondary, fontWeight: 600, marginBottom: 12, textTransform: "uppercase" }}>Distribuzione macro (%)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+          {[
+            ["Proteine", rPctP, defaultPctP, "#2563EB"],
+            ["Carboidrati", rPctC, defaultPctC, "#F59E0B"],
+            ["Grassi", rPctF, defaultPctF, "#EF4444"],
+          ].map(([lbl, ref, def, col]) => (
+            <div key={lbl} style={{ background: col + "10", borderRadius: 14, padding: "12px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 12, color: col, fontWeight: 600, marginBottom: 8 }}>{lbl}</div>
+              <input ref={ref} type="number" inputMode="decimal" defaultValue={def} onBlur={update}
+                style={{ width: "100%", background: "white", border: `1.5px solid ${col}40`, borderRadius: 10, fontSize: 22, fontWeight: 700, color: col, textAlign: "center", padding: "8px 4px", outline: "none", boxSizing: "border-box" }} />
+              <div style={{ fontSize: 11, color: col, marginTop: 4 }}>%</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Preview ricalcolato */}
+        <div style={{ background: C.bg, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: C.textSecondary, fontWeight: 600, marginBottom: 12, textTransform: "uppercase" }}>Riepilogo grammi</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+            {[
+              ["Kcal", preview.kcal, "kcal", C.text],
+              ["Proteine", preview.proteine_g, "g", "#2563EB"],
+              ["Carbo", preview.carboidrati_g, "g", "#F59E0B"],
+              ["Grassi", preview.grassi_g, "g", "#EF4444"],
+            ].map(([lbl, val, unit, col]) => (
+              <div key={lbl} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: col }}>{val}</div>
+                <div style={{ fontSize: 11, color: C.textTertiary }}>{unit}</div>
+                <div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+          {(() => {
+            const tot = preview.pctP + preview.pctC + preview.pctF;
+            return tot !== 100 ? (
+              <div style={{ marginTop: 10, fontSize: 12, color: C.red, textAlign: "center" }}>
+                ⚠️ Le percentuali sommano {tot}% — devono fare 100%
+              </div>
+            ) : null;
+          })()}
+        </div>
+
+        <button type="button" onClick={() => onSave(preview)}
+          style={{ width: "100%", background: C.green, color: "white", border: "none", borderRadius: 14, padding: "16px", fontSize: 17, fontWeight: 700, cursor: "pointer" }}>
+          Salva obiettivi
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const f = { fontFamily: "Georgia, serif" };
   const [activeTab, setActiveTab] = useState("profilo");
@@ -361,6 +463,14 @@ export default function App() {
   const [editingFoodId, setEditingFoodId] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showGoals, setShowGoals] = useState(false);
+  const [goals, setGoalsRaw] = useState(() => {
+    try { const s = localStorage.getItem('goals'); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
+  const setGoals = (v) => {
+    setGoalsRaw(v);
+    try { localStorage.setItem('goals', JSON.stringify(v)); } catch {}
+  };
   const [expandedMeal, setExpandedMeal] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [session, setSession] = useState(() => getSession());
@@ -488,16 +598,20 @@ export default function App() {
   const isPast = selectedMealDate < todayKey; // solo passato = sola lettura
 
   const totals = Object.values(meals).flat().reduce((a, f) => ({
-    calorie: a.calorie + (f.calorie || 0), proteine: a.proteine + (f.proteine_g || 0),
-    carboidrati: a.carboidrati + (f.carboidrati_g || 0), grassi: a.grassi + (f.grassi_g || 0)
-  }), { calorie: 0, proteine: 0, carboidrati: 0, grassi: 0 });
+    calorie: a.calorie + (f.calorie || 0),
+    proteine: a.proteine + (f.proteine_g || 0),
+    carboidrati: a.carboidrati + (f.carboidrati_g || 0),
+    grassi: a.grassi + (f.grassi_g || 0),
+    zuccheri: a.zuccheri + (f.zuccheri_g || 0),
+    fibre: a.fibre + (f.fibre_g || 0),
+  }), { calorie: 0, proteine: 0, carboidrati: 0, grassi: 0, zuccheri: 0, fibre: 0 });
 
   const round50 = v => Math.round(v / 50) * 50;
   const round5 = v => Math.round(v / 5) * 5;
-  const tKcal = round50(dieta?.media_settimanale?.kcal || 1499);
-  const tP = round5(dieta?.media_settimanale?.proteine_g || 89);
-  const tC = round5(dieta?.media_settimanale?.carboidrati_g || 183);
-  const tF = round5(dieta?.media_settimanale?.grassi_g || 45);
+  const tKcal = goals?.kcal || round50(dieta?.media_settimanale?.kcal || 1499);
+  const tP = goals?.proteine_g || round5(dieta?.media_settimanale?.proteine_g || 89);
+  const tC = goals?.carboidrati_g || round5(dieta?.media_settimanale?.carboidrati_g || 183);
+  const tF = goals?.grassi_g || round5(dieta?.media_settimanale?.grassi_g || 45);
 
   function addWeight() {
     if (!newWeight) return;
@@ -1067,11 +1181,24 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
         {/* Header */}
         <div style={{ background: C.card, padding: "56px 20px 20px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ ...S.row, marginBottom: 4 }}>
-            <div>
-              <div style={T.title1}>Ciao, Flavio 👋</div>
-              <div style={{ ...T.subhead, color: C.textSecondary }}>Settimana {weekNum} · {phase?.nome || "In corso"}</div>
-            </div>
-            <div style={{ width: 50, height: 50, borderRadius: 25, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 20, fontWeight: 700 }}>FL</div>
+             <div>
+               <div style={T.title1}>Ciao, Flavio 👋</div>
+               <div style={{ ...T.subhead, color: C.textSecondary }}>Settimana {weekNum} · {phase?.nome || "In corso"}</div>
+               <div style={{ fontSize: 12, color: C.textTertiary, marginTop: 2 }}>{session?.user?.email}</div>
+             </div>
+             <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+               <div style={{ width: 50, height: 50, borderRadius: 25, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 20, fontWeight: 700 }}>FL</div>
+               <div style={{ display: "flex", gap: 6 }}>
+                 <button onClick={() => setShowGoals(true)}
+                   style={{ background: C.orange + "20", color: C.orange, border: "none", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>⚙️</button>
+                 <button onClick={syncToCloud} disabled={syncing}
+                   style={{ background: C.blue + "20", color: C.blue, border: "none", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: syncing ? 0.6 : 1 }}>
+                   {syncing ? "⏳" : "☁️"}
+                 </button>
+                 <button onClick={handleLogout}
+                   style={{ background: C.red + "20", color: C.red, border: "none", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Esci</button>
+               </div>
+             </div>
           </div>
         </div>
 
@@ -1092,6 +1219,40 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
               </div>
             ))}
           </div>
+
+          {/* Target dieta */}
+          <div style={{ ...S.card, marginBottom: 12 }}>
+            <div style={{ ...S.cardPad, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ ...T.subhead, fontWeight: 700 }}>Target giornaliero</div>
+              <button onClick={() => setShowGoals(true)}
+                style={{ background: C.orange + "20", color: C.orange, border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                ✏️ Modifica
+              </button>
+            </div>
+            <div style={{ ...S.cardPad, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+              {[
+                ["Kcal", tKcal, "kcal", C.text],
+                ["Proteine", tP + "g", "", "#2563EB"],
+                ["Carbo", tC + "g", "", "#F59E0B"],
+                ["Grassi", tF + "g", "", "#EF4444"],
+              ].map(([lbl, val, unit, col]) => (
+                <div key={lbl} style={{ textAlign: "center", padding: "8px 4px", background: col + "10", borderRadius: 10 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: col }}>{val}</div>
+                  {unit && <div style={{ fontSize: 11, color: C.textTertiary }}>{unit}</div>}
+                  <div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+            {goals && (
+              <div style={{ padding: "6px 16px 10px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[["P", goals.pctP, "#2563EB"], ["C", goals.pctC, "#F59E0B"], ["G", goals.pctF, "#EF4444"]].map(([k, pct, col]) => (
+                  <span key={k} style={{ fontSize: 12, color: col, background: col + "15", borderRadius: 6, padding: "2px 8px" }}>{k} {pct}%</span>
+                ))}
+                <span style={{ fontSize: 12, color: C.textTertiary }}>— personalizzato</span>
+              </div>
+            )}
+          </div>
+
 
           {/* Grafico peso */}
           <Section title="Andamento peso" actionLabel="+ Aggiungi" action={() => {}}>
@@ -1368,12 +1529,20 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
               {[["Proteine", totals.proteine, tP, C.blue], ["Carboidrati", totals.carboidrati, tC, C.orange], ["Grassi", totals.grassi, tF, C.red]].map(([lbl, eaten, target, color]) => (
                 <div key={lbl} style={{ marginBottom: 8 }}>
                   <div style={{ ...S.row, marginBottom: 3 }}>
-                    <span style={T.footnote}>{lbl}</span>
+                    <span style={T.footnote}>{lbl}{lbl === "Carboidrati" && totals.zuccheri > 0 ? <span style={{ color: C.textTertiary }}> (di cui {Math.round(totals.zuccheri)}g zuccheri)</span> : null}</span>
                     <span style={{ ...T.footnote, fontWeight: 600, color }}>{Math.round(eaten)}g / {target}g</span>
                   </div>
                   <MacroBar eaten={eaten} target={target} color={color} />
                 </div>
               ))}
+              {totals.fibre > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ ...S.row }}>
+                    <span style={{ ...T.footnote, color: C.textSecondary }}>🌿 Fibre</span>
+                    <span style={{ ...T.footnote, color: C.green }}>{Math.round(totals.fibre)}g</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
