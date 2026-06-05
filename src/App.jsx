@@ -224,7 +224,7 @@ function FoodEditor({ food, onSave, onClose, onToggleFav, isFav }) {
   const rKcal = React.useRef(null);
   const rProt = React.useRef(null);
   const rCarb = React.useRef(null);
-   const rGras = React.useRef(null);
+  const rGras = React.useRef(null);
   const rZucc = React.useRef(null);
   const rFibre = React.useRef(null);
 
@@ -597,7 +597,16 @@ export default function App() {
     setSelectedMealDate(dateKey);
     try {
       const s = localStorage.getItem('meals_' + dateKey);
-      setMealsRaw(s ? JSON.parse(s) : { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
+      if (s) {
+        const parsed = JSON.parse(s);
+        const fixed = {};
+        Object.entries(parsed).forEach(([k, foods]) => {
+          fixed[k] = (foods || []).map((f, idx) => ({ ...f, id: f.id || (Date.now() + idx) }));
+        });
+        setMealsRaw(fixed);
+      } else {
+        setMealsRaw({ Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
+      }
     } catch {
       setMealsRaw({ Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] });
     }
@@ -882,7 +891,9 @@ Cosa mi suggerisci per la prossima sessione?`
       const mealsData = await mealsRes.json();
       if (mealsData.length > 0) {
         const newMeals = { Colazione: [], Spuntino: [], Pranzo: [], Merenda: [], Cena: [] };
-        mealsData.forEach(m => { newMeals[m.meal_name] = m.foods; });
+        mealsData.forEach(m => {
+          newMeals[m.meal_name] = (m.foods || []).map((f, idx) => ({ ...f, id: f.id || (Date.now() + idx) }));
+        });
         setMeals(newMeals);
       }
 
@@ -1627,7 +1638,7 @@ Rispondi SOLO con JSON array puro, zero testo extra, zero backtick:
                             <div style={T.body}>{food.nome}</div>
                             <div style={T.footnote}>{food.calorie} kcal · P {food.proteine_g}g · C {food.carboidrati_g}g{food.zuccheri_g ? ` (${food.zuccheri_g}g zucc)` : ""} · G {food.grassi_g}g{food.fibre_g ? ` · 🌿 ${food.fibre_g}g` : ""}</div>
                           </div>
-                          {isToday && (
+                          {!isPast && (
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setEditingFoodId(editingFoodId === food.id ? null : food.id)}
                                 style={{ ...S.btnSmall(C.blue), minHeight: 36 }}>✏️</button>
