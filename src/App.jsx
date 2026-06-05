@@ -224,7 +224,9 @@ function FoodEditor({ food, onSave, onClose, onToggleFav, isFav }) {
   const rKcal = React.useRef(null);
   const rProt = React.useRef(null);
   const rCarb = React.useRef(null);
-  const rGras = React.useRef(null);
+   const rGras = React.useRef(null);
+  const rZucc = React.useRef(null);
+  const rFibre = React.useRef(null);
 
   // Calcola i valori per 100g dall'alimento corrente (per poter ricalcolare)
   // Cerca grammi nel nome (es. "yogurt 150g") altrimenti assume 100g
